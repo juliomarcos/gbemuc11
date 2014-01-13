@@ -84,6 +84,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="RomPath.cpp" />
+    <ClCompile Include="StringUtilscpp.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="RomPath.hpp" />
+    <ClInclude Include="StringUtils.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
