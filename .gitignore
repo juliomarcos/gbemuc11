@@ -2,6 +2,8 @@
 *.opensdf
 Debug/
 Release/
+gbemuc11/Debug/
+gbemuc11/Release/
 *.suo
 *.user
 *.obj
