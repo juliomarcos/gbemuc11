@@ -1,10 +1,10 @@
 #include <Windows.h>
 
 #include <GLFW\glfw3.h>
-#include <iostream>
-#include <string>
+#include "StdLibraries.hpp"
 
 #include "RomPath.hpp"
+#include "CPU.hpp"
 
 using namespace std;
 
@@ -32,6 +32,14 @@ namespace gbemu {
 		return window;
 	}
 
+	shared_ptr<array<byte, CARTRIDGE_SIZE>> getByteBufferFromPath(string path) {
+		ifstream romFile;
+		romFile.open(path, ios::binary);
+		auto bufferPtr = make_shared<array<byte, CARTRIDGE_SIZE>>();
+		romFile.read(reinterpret_cast<char*>((*bufferPtr).data()), CARTRIDGE_SIZE);
+		return bufferPtr;
+	}
+
 }
 
 int main(int argc, char *argv[], char* envp[]) {
@@ -44,12 +52,19 @@ int main(int argc, char *argv[], char* envp[]) {
 
 	auto romFileName = gbemu::getRomFileNameFromPath(romPath);
 	auto windowTitle = string("gbemuc11 - ") + romFileName;
+	auto window = gbemu::initWindow(640, 576, windowTitle);
 
-	auto window = gbemu::initWindow(640, 480, windowTitle);
+	auto cpu = gbemu::CPU::CPU();
+
+	for (size_t i = 0; i < 1000; i++)
+	{
+		cpu.loadROM(gbemu::getByteBufferFromPath(romPath));
+	}
+
 
 	while (!glfwWindowShouldClose(window))
 	{
-		/* Render here */
+		cpu.emulateCycle();
 
 		glfwSwapBuffers(window);
 

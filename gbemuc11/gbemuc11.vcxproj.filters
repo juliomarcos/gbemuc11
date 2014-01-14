@@ -24,12 +24,21 @@
     <ClCompile Include="StringUtilscpp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="CPU.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="StdLibraries.hpp">
+      <Filter>Header Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="RomPath.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="StringUtils.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CPU.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
