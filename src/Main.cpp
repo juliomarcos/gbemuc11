@@ -1,6 +1,4 @@
-#include <Windows.h>
-
-#include <GLFW\glfw3.h>
+#include <GLFW/glfw3.h>
 #include "StdLibraries.hpp"
 
 #include "RomPath.hpp"
@@ -42,11 +40,11 @@ namespace gbemu {
 
 }
 
-int main(int argc, char *argv[], char* envp[]) {
+int main(int argc, char *argv[]) {
 
 	auto romPath = gbemu::getRomPathFromArgvOrFail(argc, argv);
 	if (romPath.empty()) {
-		MessageBox(0, L"You need to specify a gameboy rom.", L"Loading Error", MB_ICONERROR);
+		cout << "You need to specify a gameboy rom. e.g gbemu Tetris.gb";
 		return -1;
 	}
 
@@ -65,9 +63,7 @@ int main(int argc, char *argv[], char* envp[]) {
 	while (!glfwWindowShouldClose(window))
 	{
 		cpu.emulateCycle();
-
 		glfwSwapBuffers(window);
-
 		glfwPollEvents();
 	}
 
