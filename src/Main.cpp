@@ -44,28 +44,33 @@ int main(int argc, char *argv[]) {
 
 	auto romPath = gbemu::getRomPathFromArgvOrFail(argc, argv);
 	if (romPath.empty()) {
-		cout << "You need to specify a gameboy rom. e.g gbemu Tetris.gb";
+		cout << "You need to specify a gameboy rom. e.g >> gbemu Tetris.gb";
 		return -1;
 	}
 
 	auto romFileName = gbemu::getRomFileNameFromPath(romPath);
 	auto windowTitle = string("gbemuc11 - ") + romFileName;
-	auto window = gbemu::initWindow(640, 576, windowTitle);
+	// auto window = gbemu::initWindow(640, 576, windowTitle);
 
 	auto cpu = gbemu::CPU::CPU();
 
-	for (size_t i = 0; i < 1000; i++)
-	{
-		cpu.loadROM(gbemu::getByteBufferFromPath(romPath));
-	}
+	//cpu.loadRom(gbemu::getByteBufferFromPath(romPath)); // TODO: usar isto depois q o bootstrap rodar
+	cpu.loadRom(gbemu::getByteBufferFromPath("bootstrap.bin"));
 
-
-	while (!glfwWindowShouldClose(window))
+	for(size_t i = 0; i < 10; ++i)
 	{
+		// vamos emular uns 10 ciclos só pra brincar
 		cpu.emulateCycle();
-		glfwSwapBuffers(window);
-		glfwPollEvents();
 	}
+
+	// Ainda n tem quase nada emulado
+	// n vale a pena mostrar a janela
+	// while (!glfwWindowShouldClose(window))
+	// {
+	// 	cpu.emulateCycle();
+	// 	glfwSwapBuffers(window);
+	// 	glfwPollEvents();
+	// }
 
 	glfwTerminate();
 	return 0;
