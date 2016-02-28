@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <bitset>
 #include "StdLibraries.hpp"
 
 using byte = unsigned char;
@@ -11,7 +12,7 @@ using namespace std;
 namespace gbemu {
 
 	const size_t CARTRIDGE_SIZE = 32 * 1024; // TODO: relax this requirement, this is the fixed tetris size
-	enum Register { SP };
+	enum Register { A, F, B, C, D, E, H, L, HL, SP, PC };
 
 	class CPU
 	{
@@ -19,6 +20,7 @@ namespace gbemu {
 		byte ram[64 * 1024];
 		array<byte, CARTRIDGE_SIZE> rom;
 		uint8_t opcode;		
+		int duration;
 
 	public:
 		CPU();
@@ -26,10 +28,13 @@ namespace gbemu {
 		
 		void emulateCycle();
 		void fetch();
-		void decode();
-		void execute();
+		void decodeAndExecute();
+		void debugger();
+		uint16_t hl();
 		
-		void load(Register reg, int dataSize);
+		void ld(Register reg, int dataSize);
+		void ixor(Register reg);
+		// void jr(Register reg);
 
 		void loadRom(shared_ptr<array<byte, CARTRIDGE_SIZE>> buffer);
 	
