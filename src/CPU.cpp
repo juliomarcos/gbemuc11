@@ -39,7 +39,7 @@ namespace gbemu {
 	}
 	
 	void CPU::execute() {
-		
+		printf("SP %x\n", sp);
 	}
 
 	void CPU::loadRom(shared_ptr<array<byte, CARTRIDGE_SIZE>> bufferPtr)
@@ -52,7 +52,16 @@ namespace gbemu {
 	}
 	
 	void CPU::load(Register reg, int dataSize) {
-		
+		switch(reg)	{
+			case SP:
+				if (dataSize == 16) {
+					sp = (ram[pc]) + (ram[pc+1] << 8); // little endian
+					pc += 2;
+				} else {
+					sp = ram[pc++];
+				}
+				break;
+		}
 	}
 	
 }
