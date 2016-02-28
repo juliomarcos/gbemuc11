@@ -63,8 +63,7 @@ namespace gbemu {
 	
 	void CPU::debugger() {
 		printf("A %x B %x C %x D %x E %x\n", a, b, c, d, e);
-		printf("HL %x %x: %04x\n", h, l, hl());
-		printf("PC %x SP %x\n", pc, sp);
+		printf("PC %x SP %x HL %04x\n", pc, sp, hl());
 		bitset<8> bits(f);
 		cout << "F b" << bits << endl;
 	}
