@@ -11,6 +11,15 @@ namespace gbemu {
 	CPU::CPU()
 	{
 		pc = 0;
+		
+		// inserts gibberish on VRAM
+		// remove this later
+		std::default_random_engine generator;
+		std::uniform_int_distribution<int> distribution(0, 0xFF);
+		for(size_t i = 0x9FFF; i >= VRAM_START; i--)
+		{
+			ram[i] = distribution(generator);
+		}
 	}
 
 	CPU::~CPU()
@@ -26,44 +35,50 @@ namespace gbemu {
 
 	void CPU::fetch() {
 		printf("ram[pc] %x %x %x %x\n", ram[pc], ram[pc+1], ram[pc+2], ram[pc+3]);
+		printf("vram start %02x %02x %02x %02x %02x %02x %02x %02x\n", ram[VRAM_START], ram[VRAM_START+1], ram[VRAM_START+2], ram[VRAM_START+3], ram[VRAM_START+4], ram[VRAM_START+5], ram[VRAM_START+6], ram[VRAM_START+7]);
+		printf("vram end %02x %02x %02x %02x %02x %02x %02x %02x\n", ram[VRAM_END], ram[VRAM_END-1], ram[VRAM_END-2], ram[VRAM_END-3], ram[VRAM_END-4], ram[VRAM_END-5], ram[VRAM_END-6], ram[VRAM_END-7]);
 		opcode = ram[pc++];
 		if (opcode == 0xCB) {
 			opcode = (opcode << 8) + ram[pc++];
 		}
-		printf("fetched: %x\n", opcode);
+		printf("fetched: " ANSI_COLOR_GREEN "%x. " ANSI_COLOR_YELLOW , opcode);
 	}
 	
 	void CPU::decodeAndExecute() {
 		switch(opcode) {
 			case 0x20:
+				cout << "JR NZ,r8";
 				duration = jr(NZ, R8);
+				break;
 			case 0x21:
-				// cout << "LD HL, dd16";
-				ld(HL, 16);
+				cout << "LD HL, d16";
+				ld(HL, D16);
 				duration = 12;
-			break;
+				break;
 			case 0x31: 
-				// cout << "LD SP, dd16" << endl;
-				ld(SP, 16);
+				cout << "LD SP, d16";
+				ld(SP, D16);
 				duration = 12;
 				break;
 			case 0x32: 
-				// cout << "LD (HL-), A" << endl;
+				cout << "LD (HL-), A";
 				ldind(HL, SUB, A, NOP);
 				duration = 8;
 				break;
 			case 0xAF:
-				// cout << "XOR A" << endl;
+				cout << "XOR A";
 				ixor(A);
 				duration = 4;
 				break;
 			case 0xCB7C:
+				cout << "BIT 7, H";
 				bit(7, H);
 				duration = 8;
 				break;
 			default:
 				printf(">> " ANSI_COLOR_YELLOW "%04x" ANSI_COLOR_RESET " : opcode NOT implemented\n", opcode);
 		}
+		cout << ANSI_COLOR_RESET << endl;
 	}
 	
 	uint16_t CPU::hl() {
@@ -107,19 +122,14 @@ namespace gbemu {
 				break;
 		}
 	}
-	//
-	// void CPU::jr(Register reg) {
-	// 	switch (reg) {
-	// 	}
-	// }
-	//
-	void CPU::ld(Register16 reg, int dataSize) {
+
+	void CPU::ld(Register16 reg, DataType dataType) {
 		if (reg == HL) { // HL is not a register, it's a pair of them.
 			l = ram[pc++];
 			h = ram[pc++];
 		} else { 
 			uint16_t* regPtr = getRegisterPointer(reg);
-			if (dataSize == 16) {
+			if (dataType == D16) {
 				*regPtr = (ram[pc]) + (ram[pc+1] << 8); // little endian
 				pc += 2;
 			} else {
@@ -133,7 +143,7 @@ namespace gbemu {
 		auto *regBptr = getRegisterPointer(regB);
 		
 		if (regA == HL) { // special case
-			*regBptr = ram[hl()];
+			ram[hl()] = *regBptr;
 			switch (opA) {
 				case SUB: l--; break;
 			}
@@ -145,9 +155,7 @@ namespace gbemu {
 	
 	void CPU::bit(int whichBit, Register8 reg) {
 		auto v = *getRegisterPointer(reg);
-		v = v >> whichBit;
-		v = v << whichBit;
-		if (v > 0) {
+		if (CHECK_BIT(v, whichBit)) {
 			f = f | ZERO_FLAG;
 		} else {
 			f = f & NEGATE_ZERO_FLAG;
@@ -155,7 +163,26 @@ namespace gbemu {
 	}
 	
 	int CPU::jr(Condition cond, DataType dataType) {
-		
+		int data;
+		switch (dataType) {
+			case R8: data = (int8_t) ram[pc++];
+		}
+		switch (cond) {
+			case Z:
+				if (CHECK_BIT(f, 7)) {
+					pc = pc+data;	
+					return 12;
+				} else {
+					return 8;
+				}
+			case NZ:
+				if (!CHECK_BIT(f, 7)) {
+					pc = pc+data;	
+					return 12;
+				} else {
+					return 8;
+				}
+		}
 	}
 	
 }

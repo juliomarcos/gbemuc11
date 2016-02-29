@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <bitset>
-#include <cmath>
+#include <random>
 
 #include "StdLibraries.hpp"
 #include "ColoredStdOut.hpp"
@@ -20,6 +20,11 @@ namespace gbemu {
 	enum DataType { D8, D16, A8, A16, R8 };
 	enum Operation { ADD, SUB, NOP };
 	enum Condition { CR, NC, NZ, Z };
+	
+	const int VRAM_START = 0x8000;
+	const int VRAM_END 	 = 0x9FFF;
+	
+	#define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
 	
 	class CPU
 	{
@@ -41,7 +46,7 @@ namespace gbemu {
 		void debugger();
 		uint16_t hl();
 		
-		void ld(Register16 reg, int dataSize);
+		void ld(Register16 reg, DataType dataType);
 		void ldind(Register16 regA, Operation opA, Register8 regB, Operation opB);
 		void ixor(Register8 reg);
 		void bit(int whichBit, Register8 reg);

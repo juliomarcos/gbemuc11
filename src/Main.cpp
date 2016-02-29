@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
 	//cpu.loadRom(gbemu::getByteBufferFromPath(romPath)); // TODO: usar isto depois q o bootstrap rodar
 	cpu.loadRom(gbemu::getByteBufferFromPath("./build/bootstrap.bin"));
 
-	for(size_t i = 0; i < 10; ++i)
+	for(size_t i = 0; i < 8194; ++i)
 	{
 		// vamos emular uns 10 ciclos só pra brincar
 		cpu.emulateCycle();
