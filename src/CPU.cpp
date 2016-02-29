@@ -85,6 +85,11 @@ namespace gbemu {
 		return (h<<8) + l;
 	}
 	
+	void CPU::hl(uint16_t vhl) {
+		h = vhl >> 8;
+		l = (uint8_t) vhl;
+	}
+	
 	void CPU::debugger() {
 		printf("A %x B %x C %x D %x E %x\n", a, b, c, d, e);
 		printf("PC %x SP %x HL %04x\n", pc, sp, hl());
@@ -143,10 +148,12 @@ namespace gbemu {
 		auto *regBptr = getRegisterPointer(regB);
 		
 		if (regA == HL) { // special case
-			ram[hl()] = *regBptr;
+			auto vhl = hl();
+			ram[vhl] = *regBptr;
 			switch (opA) {
-				case SUB: l--; break;
+				case SUB: vhl--; break;
 			}
+			hl(vhl);
 		} else {
 			
 		}

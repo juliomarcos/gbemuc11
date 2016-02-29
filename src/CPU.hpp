@@ -45,6 +45,7 @@ namespace gbemu {
 		void decodeAndExecute();
 		void debugger();
 		uint16_t hl();
+		void hl(uint16_t);
 		
 		void ld(Register16 reg, DataType dataType);
 		void ldind(Register16 regA, Operation opA, Register8 regB, Operation opB);
