@@ -8,3 +8,4 @@ gbemuc11/Release/
 *.user
 *.obj
 *.o
+*.log
