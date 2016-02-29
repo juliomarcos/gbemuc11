@@ -15,10 +15,12 @@ using namespace std;
 namespace gbemu {
 
 	const size_t CARTRIDGE_SIZE = 32 * 1024; // TODO: relax this requirement, this is the fixed tetris size
-	enum Operation { ADD, SUB, NOP };
 	enum Register8 { A, F, B, C, D, E, H, L };
 	enum Register16 { HL, SP, PC };
-
+	enum DataType { D8, D16, A8, A16, R8 };
+	enum Operation { ADD, SUB, NOP };
+	enum Condition { CR, NC, NZ, Z };
+	
 	class CPU
 	{
 
@@ -43,7 +45,7 @@ namespace gbemu {
 		void ldind(Register16 regA, Operation opA, Register8 regB, Operation opB);
 		void ixor(Register8 reg);
 		void bit(int whichBit, Register8 reg);
-		// void jr(Register reg);
+		int jr(Condition cond, DataType dataType); // returns duration. jumps have different durations according to action or no action taken
 
 		void loadRom(shared_ptr<array<byte, CARTRIDGE_SIZE>> buffer);
 	

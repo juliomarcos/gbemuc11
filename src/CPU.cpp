@@ -35,6 +35,8 @@ namespace gbemu {
 	
 	void CPU::decodeAndExecute() {
 		switch(opcode) {
+			case 0x20:
+				duration = jr(NZ, R8);
 			case 0x21:
 				// cout << "LD HL, dd16";
 				ld(HL, 16);
@@ -150,6 +152,10 @@ namespace gbemu {
 		} else {
 			f = f & NEGATE_ZERO_FLAG;
 		}
+	}
+	
+	int CPU::jr(Condition cond, DataType dataType) {
+		
 	}
 	
 }
