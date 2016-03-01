@@ -4,18 +4,21 @@
 #include <cstdio>
 #include <bitset>
 #include <random>
+#include <exception>
 
 #include "StdLibraries.hpp"
 #include "ColoredStdOut.hpp"
-
-using byte = unsigned char;
+#include "TypeDefinitions.hpp"
+#include "BitUtils.hpp"
 
 using namespace std;
 
 namespace gbemu {
 
 	const size_t CARTRIDGE_SIZE = 32 * 1024; // TODO: relax this requirement, this is the fixed tetris size
-	enum Register8 { A, F, B, C, D, E, H, L };
+	const int CLOCK_SPEED = 4194304;
+	
+	enum Register8 { A, B, C, D, E, F, H, L };
 	enum Register16 { HL, SP, PC };
 	enum DataType { D8, D16, A8, A16, R8 };
 	enum Operation { ADD, SUB, NOP };
@@ -24,12 +27,9 @@ namespace gbemu {
 	const int VRAM_START = 0x8000;
 	const int VRAM_END 	 = 0x9FFF;
 	
-	#define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
-	
 	class CPU
 	{
 
-		byte ram[64 * 1024];
 		array<byte, CARTRIDGE_SIZE> rom;
 		uint16_t opcode;		
 		int duration;
@@ -40,12 +40,21 @@ namespace gbemu {
 		CPU();
 		virtual ~CPU();
 		
+		byte ram[64 * 1024];
+		
 		void emulateCycle();
 		void fetch();
 		void decodeAndExecute();
 		void debugger();
+		byte* getVramRef();
+		
 		uint16_t hl();
 		void hl(uint16_t);
+		uint8_t lcdc();
+		uint8_t scrollX();
+		uint8_t scrollY();
+		uint8_t windowX();
+		uint8_t windowY();
 		
 		void ld(Register16 reg, DataType dataType);
 		void ldind(Register16 regA, Operation opA, Register8 regB, Operation opB);

@@ -1,12 +1,17 @@
 #include <GLFW/glfw3.h>
+#include <execinfo.h>
 #include "StdLibraries.hpp"
+#include "TypeDefinitions.hpp"
 
 #include "RomPath.hpp"
 #include "CPU.hpp"
+#include "GPU.hpp"
 
 using namespace std;
 
 namespace gbemu {
+	
+	const int REFRESH_RATE = 60; // Hz
 
 	GLFWwindow* initWindow(int width, int height, string windowTitle) {
 		GLFWwindow* window;
@@ -26,6 +31,7 @@ namespace gbemu {
 
 		/* Make the window's context current */
 		glfwMakeContextCurrent(window);
+		glfwSwapInterval(1);
 
 		return window;
 	}
@@ -40,7 +46,24 @@ namespace gbemu {
 
 }
 
+void handler()
+{
+    void *trace_elems[20];
+    int trace_elem_count(backtrace( trace_elems, 20 ));
+    char **stack_syms(backtrace_symbols( trace_elems, trace_elem_count ));
+    for ( int i = 0 ; i < trace_elem_count ; ++i )
+    {
+        std::cout << stack_syms[i] << "\n";
+    }
+    free( stack_syms );
+
+    exit(1);
+}   
+
+
 int main(int argc, char *argv[]) {
+
+	set_terminate(handler);
 
 	auto romPath = gbemu::getRomPathFromArgvOrFail(argc, argv);
 	if (romPath.empty()) {
@@ -50,27 +73,31 @@ int main(int argc, char *argv[]) {
 
 	auto romFileName = gbemu::getRomFileNameFromPath(romPath);
 	auto windowTitle = string("gbemuc11 - ") + romFileName;
-	// auto window = gbemu::initWindow(640, 576, windowTitle);
+	auto window = gbemu::initWindow(160, 144, windowTitle);
 
 	auto cpu = gbemu::CPU::CPU();
+	auto gpu = gbemu::GPU::GPU(window, cpu);
 
 	//cpu.loadRom(gbemu::getByteBufferFromPath(romPath)); // TODO: usar isto depois q o bootstrap rodar
 	cpu.loadRom(gbemu::getByteBufferFromPath("./build/bootstrap.bin"));
 
-	for(size_t i = 0; i < 3 + 8191*3 + 3; ++i)
-	{
-		// vamos emular uns 10 ciclos só pra brincar
-		cpu.emulateCycle();
-	}
-
-	// Ainda n tem quase nada emulado
-	// n vale a pena mostrar a janela
-	// while (!glfwWindowShouldClose(window))
+	// auto cycles = 12;
+	// auto cycles = 3 + 8191*3 + 9;
+	// for(size_t i = 0; i < cycles; ++i)
 	// {
 	// 	cpu.emulateCycle();
-	// 	glfwSwapBuffers(window);
-	// 	glfwPollEvents();
 	// }
+
+	while (!glfwWindowShouldClose(window))
+	{
+		auto cycles = gbemu::CLOCK_SPEED / gbemu::REFRESH_RATE;
+		while (cycles--) {			
+			cpu.emulateCycle();
+		}
+		gpu.draw();
+		glfwSwapBuffers(window);
+		glfwPollEvents();
+	}
 
 	glfwTerminate();
 	return 0;

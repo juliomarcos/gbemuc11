@@ -34,51 +34,52 @@ namespace gbemu {
 	}
 
 	void CPU::fetch() {
-		printf("ram[pc] %x %x %x %x\n", ram[pc], ram[pc+1], ram[pc+2], ram[pc+3]);
-		printf("vram start %02x %02x %02x %02x %02x %02x %02x %02x\n", ram[VRAM_START], ram[VRAM_START+1], ram[VRAM_START+2], ram[VRAM_START+3], ram[VRAM_START+4], ram[VRAM_START+5], ram[VRAM_START+6], ram[VRAM_START+7]);
-		printf("vram end %02x %02x %02x %02x %02x %02x %02x %02x\n", ram[VRAM_END], ram[VRAM_END-1], ram[VRAM_END-2], ram[VRAM_END-3], ram[VRAM_END-4], ram[VRAM_END-5], ram[VRAM_END-6], ram[VRAM_END-7]);
+		//printf("ram[pc] %x %x %x %x\n", ram[pc], ram[pc+1], ram[pc+2], ram[pc+3]);
+		//printf("vram start %02x %02x %02x %02x %02x %02x %02x %02x\n", ram[VRAM_START], ram[VRAM_START+1], ram[VRAM_START+2], ram[VRAM_START+3], ram[VRAM_START+4], ram[VRAM_START+5], ram[VRAM_START+6], ram[VRAM_START+7]);
+		//printf("vram end %02x %02x %02x %02x %02x %02x %02x %02x\n", ram[VRAM_END], ram[VRAM_END-1], ram[VRAM_END-2], ram[VRAM_END-3], ram[VRAM_END-4], ram[VRAM_END-5], ram[VRAM_END-6], ram[VRAM_END-7]);
 		opcode = ram[pc++];
 		if (opcode == 0xCB) {
 			opcode = (opcode << 8) + ram[pc++];
 		}
-		printf("fetched: " ANSI_COLOR_GREEN "%x. " ANSI_COLOR_YELLOW , opcode);
+		//printf("fetched: " ANSI_COLOR_GREEN "%x. " ANSI_COLOR_YELLOW , opcode);
 	}
 	
 	void CPU::decodeAndExecute() {
 		switch(opcode) {
 			case 0x20:
-				cout << "JR NZ,r8";
+				//printf("JR NZ,r8");
 				duration = jr(NZ, R8);
 				break;
 			case 0x21:
-				cout << "LD HL, d16";
+				//printf("LD HL, d16");
 				ld(HL, D16);
 				duration = 12;
 				break;
 			case 0x31: 
-				cout << "LD SP, d16";
+				//printf("LD SP, d16");
 				ld(SP, D16);
 				duration = 12;
 				break;
 			case 0x32: 
-				cout << "LD (HL-), A";
+				//printf("LD (HL-), A");
 				ldind(HL, SUB, A, NOP);
 				duration = 8;
 				break;
 			case 0xAF:
-				cout << "XOR A";
+				//printf("XOR A");
 				ixor(A);
 				duration = 4;
 				break;
 			case 0xCB7C:
-				cout << "BIT 7, H";
+				//printf("BIT 7, H");
 				bit(7, H);
 				duration = 8;
 				break;
-			default:
-				printf(">> " ANSI_COLOR_YELLOW "%04x" ANSI_COLOR_RESET " : opcode NOT implemented\n", opcode);
+			default: 
+				break;
+				//printf(">> " ANSI_COLOR_YELLOW "%04x" ANSI_COLOR_RESET " : opcode NOT implemented\n", opcode);
 		}
-		cout << ANSI_COLOR_RESET << endl;
+		//printf(ANSI_COLOR_RESET "\n");
 	}
 	
 	uint16_t CPU::hl() {
@@ -90,16 +91,47 @@ namespace gbemu {
 		l = (uint8_t) vhl;
 	}
 	
+	uint8_t CPU::scrollX() {
+		return ram[0xFF43];
+	}
+	
+	uint8_t CPU::scrollY() {
+		return ram[0xFF42];
+	}
+	
+	uint8_t CPU::windowX() {
+		return ram[0xFF4A] - 7;
+	}
+	
+	uint8_t CPU::windowY() {
+		return ram[0xFF4B];
+	}
+	
+	uint8_t CPU::lcdc() {
+		return ram[0xFF40];
+	}
+	
 	void CPU::debugger() {
-		printf("A %x B %x C %x D %x E %x\n", a, b, c, d, e);
-		printf("PC %x SP %x HL %04x\n", pc, sp, hl());
-		bitset<8> bits(f);
-		cout << "F b" << bits << endl;
+		// printf("A %x B %x C %x D %x E %x\n", a, b, c, d, e);
+		// printf("PC %x SP %x HL %04x\n", pc, sp, hl());
+		// bitset<8> bits(f);
+		// cout << "F b" << bits << endl;
+	}
+
+	byte* CPU::getVramRef() {
+		return ram + VRAM_START;
 	}
 
 	uint8_t* CPU::getRegisterPointer(Register8 r) {
 		switch (r) {
 			case A: return &a;
+			case B: return &b;
+			case C: return &c;
+			case D: return &d;
+			case E: return &e;
+			case F: return &f;
+			case H: return &h;
+			case L: return &l;
 		}
 	}
 	
@@ -107,6 +139,7 @@ namespace gbemu {
 		switch (r) {
 			case PC: return &pc;
 			case SP: return &sp;
+			default: throw invalid_argument("\nRegister passed to getRegisterPointer(Register16) is not supported");
 		}
 	}
 
@@ -144,24 +177,22 @@ namespace gbemu {
 	}
 	
 	void CPU::ldind(Register16 regA, Operation opA, Register8 regB, Operation opB) {
-		auto *regAptr = getRegisterPointer(regA);
-		auto *regBptr = getRegisterPointer(regB);
-		
 		if (regA == HL) { // special case
 			auto vhl = hl();
-			ram[vhl] = *regBptr;
+			ram[vhl] = *getRegisterPointer(regB);
 			switch (opA) {
 				case SUB: vhl--; break;
 			}
 			hl(vhl);
 		} else {
-			
+			// auto *regAptr = getRegisterPointer(regA);
+			// auto *regBptr = getRegisterPointer(regB);
 		}
-		
 	}
 	
 	void CPU::bit(int whichBit, Register8 reg) {
 		auto v = *getRegisterPointer(reg);
+		//printf("BIT execution. H %x\n", v);
 		if (CHECK_BIT(v, whichBit)) {
 			f = f | ZERO_FLAG;
 		} else {
@@ -176,14 +207,14 @@ namespace gbemu {
 		}
 		switch (cond) {
 			case Z:
-				if (CHECK_BIT(f, 7)) {
+				if (!CHECK_BIT(f, 7)) {
 					pc = pc+data;	
 					return 12;
 				} else {
 					return 8;
 				}
 			case NZ:
-				if (!CHECK_BIT(f, 7)) {
+				if (CHECK_BIT(f, 7)) {
 					pc = pc+data;	
 					return 12;
 				} else {
