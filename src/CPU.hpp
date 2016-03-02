@@ -42,7 +42,7 @@ namespace gbemu {
 		
 		byte ram[64 * 1024];
 		
-		void emulateCycle();
+		int emulateNextInstruction();
 		void fetch();
 		void decodeAndExecute();
 		void debugger();
@@ -50,6 +50,8 @@ namespace gbemu {
 		
 		uint16_t hl();
 		void hl(uint16_t);
+		uint8_t ly();
+		void ly(uint8_t scanline);
 		uint8_t lcdc();
 		uint8_t scrollX();
 		uint8_t scrollY();

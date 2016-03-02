@@ -13,6 +13,7 @@ namespace gbemu {
 		pixels = new byte[width * height * 3];
 	}
 	
+	// this function is completely non-sensical
 	byte* GPU::vramToGlBuffer() {
 		auto j = 0;
 		for(size_t i = 0; i < (gbemu::VRAM_END - gbemu::VRAM_START); i++) {
@@ -22,7 +23,7 @@ namespace gbemu {
 				case 1: pixels[j++] = 182; pixels[j++] = 182; pixels[j++] = 182; break;
 				case 2: pixels[j++] = 96; pixels[j++] = 96; pixels[j++] = 96; break;
 				case 3: pixels[j++] = 10; pixels[j++] = 10; pixels[j++] = 10; break;
-				default: printf("VRAM BUFFER ERROR\n"); break;
+				default: pixels[j++] = 10; pixels[j++] = 10; pixels[j++] = 10; printf("VRAM BUFFER ERROR\n"); break;
 			}
 		}
 		return pixels;
@@ -38,13 +39,34 @@ namespace gbemu {
 		
 	}
 	
-	void GPU::draw() {
+	void GPU::draw(int cycles) {
 		
 		auto lcdc = cpu.lcdc();
-		
-		if (!CHECK_BIT(ldcd, LCD_DISPLAY_ENABLE)) {
+	
+		if (!CHECK_BIT(lcdc, LCD_DISPLAY_ENABLE)) {
+			scanlineDelayCounter -= cycles;
 			return;
 		}
+		
+		if (scanlineDelayCounter > 0) return; 
+		
+		scanlineDelayCounter = 456; // it takes 456 cycles to draw one scanline
+		auto currentLine = cpu.ly();
+		cpu.ly(currentLine + 1);
+		
+		if (currentLine == 144) {
+			// interrupt.request(Interrupt::V_BLANK)
+		} else if (currentLine > 153) { // V-Blank finished
+			cpu.ly(0);
+		} else {
+			drawScanLine(lcdc, currentLine);
+		}
+		
+	}
+	
+	void GPU::drawScanLine(uint8_t lcdc, uint8_t currentLine) {
+		
+		printf("drawScanLine lcdc %x currentLine %d\n", lcdc, currentLine);
 		
 		glfwGetFramebufferSize(window, &width, &height);
 		if (prevWidth != width) {
@@ -63,6 +85,5 @@ namespace gbemu {
 		if (CHECK_BIT(lcdc, BG_DISPLAY)) {
 			drawBackground();
 		}
-		
 	}
 }

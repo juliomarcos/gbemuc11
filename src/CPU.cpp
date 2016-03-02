@@ -11,6 +11,7 @@ namespace gbemu {
 	CPU::CPU()
 	{
 		pc = 0;
+		ram[0xFF40] = 0xff;
 		
 		// inserts gibberish on VRAM
 		// remove this later
@@ -26,11 +27,12 @@ namespace gbemu {
 	{
 	}
 
-	void CPU::emulateCycle()
+	int CPU::emulateNextInstruction()
 	{
 		fetch();
 		decodeAndExecute();
 		debugger();
+		return duration;
 	}
 
 	void CPU::fetch() {
@@ -89,6 +91,14 @@ namespace gbemu {
 	void CPU::hl(uint16_t vhl) {
 		h = vhl >> 8;
 		l = (uint8_t) vhl;
+	}
+	
+	uint8_t CPU::ly() {
+		return ram[0xFF44];
+	}
+	
+	void CPU::ly(uint8_t scanline) {
+		ram[0xFF44] = scanline;
 	}
 	
 	uint8_t CPU::scrollX() {

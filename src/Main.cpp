@@ -88,13 +88,18 @@ int main(int argc, char *argv[]) {
 	// 	cpu.emulateCycle();
 	// }
 
+    const auto CYCLES_PER_FRAME = gbemu::CLOCK_SPEED / gbemu::REFRESH_RATE;
 	while (!glfwWindowShouldClose(window))
 	{
-		auto cycles = gbemu::CLOCK_SPEED / gbemu::REFRESH_RATE;
-		while (cycles--) {			
-			cpu.emulateCycle();
+		auto cyclesThisFrame = 0;
+		auto cyclesThisInstruction = 0;
+		
+		while (cyclesThisFrame < CYCLES_PER_FRAME) {			
+			cyclesThisInstruction = cpu.emulateNextInstruction();
+			gpu.draw(cyclesThisInstruction);
+			//timers.update(cyclesThisInstruction);
+			cyclesThisFrame += cyclesThisInstruction;
 		}
-		gpu.draw();
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}

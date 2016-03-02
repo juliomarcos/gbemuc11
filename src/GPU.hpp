@@ -9,20 +9,21 @@ namespace gbemu {
 	
 	class GPU {
 		
-		const int TILE_SET_1 = 0;
-		const int TILE_SET_2 = 0x800;
-		const int TILE_MAP_1 = 0x1800;
-		const int TILE_MAP_2 = 0x1C00;
+		const static int TILE_SET_1 = 0;
+		const static int TILE_SET_2 = 0x800;
+		const static int TILE_MAP_1 = 0x1800;
+		const static int TILE_MAP_2 = 0x1C00;
 		
-	    const auto LCD_DISPLAY_ENABLE = 7;
-	    const auto WINDOW_TILE_MAP_DISPLAY_SELECT = 6;
-	    const auto WINDOW_DISPLAY_ENABLE = 5;
-	    const auto BG_AND_WINDOW_TILE_DATA_SELECT = 4;
-	    const auto BG_TILE_MAP_DISPLAY_SELECT = 3;
-	    const auto OBJ_SPRITE_SIZE = 2;
-	    const auto OBJ_SPRITE_DISPLAY_ENABLE = 1;
-	    const auto BG_DISPLAY = 0;
+	    const static auto LCD_DISPLAY_ENABLE = 7;
+	    const static auto WINDOW_TILE_MAP_DISPLAY_SELECT = 6;
+	    const static auto WINDOW_DISPLAY_ENABLE = 5;
+	    const static auto BG_AND_WINDOW_TILE_DATA_SELECT = 4;
+	    const static auto BG_TILE_MAP_DISPLAY_SELECT = 3;
+	    const static auto OBJ_SPRITE_SIZE = 2;
+	    const static auto OBJ_SPRITE_DISPLAY_ENABLE = 1;
+	    const static auto BG_DISPLAY = 0;
 		
+		int scanlineDelayCounter;
 		GLFWwindow* window;
 		CPU& cpu;
 		byte* vram;
@@ -36,7 +37,8 @@ namespace gbemu {
 		}
 		virtual ~GPU();
 		
-		void draw();
+		void draw(int cycles);
+		void drawScanLine(uint8_t lcdc, uint8_t currentLine);
 		void drawWindow();
 		void drawBackground();
 		void reallocatePixelsBuffer();
