@@ -29,14 +29,23 @@ namespace gbemu {
 		return pixels;
 	}
 	
-	void GPU::drawBackground() {
+	void GPU::drawBackground(uint8_t lcdc) {
 		auto scrollX = cpu.scrollX();
 		auto scrollY = cpu.scrollY();
+		int bgTileMapOffset;
+		if (!CHECK_BIT(lcdc, BG_TILE_MAP_DISPLAY_SELECT)) {
+			bgTileMapOffset = TILE_BG_MAP_1; // 0~255
+		} else {
+			bgTileMapOffset = TILE_BG_MAP_2; // -128~127
+		}
+		
 		glDrawPixels(width, height, GL_RGB, GL_UNSIGNED_BYTE, vramToGlBuffer());
 	}
 	
-	void GPU::drawWindow() {
-		
+	void GPU::drawWindow(uint8_t lcdc) {
+		auto windowX = cpu.windowX();
+		if (windowX > 166) return;
+		auto windowY = cpu.windowY();
 	}
 	
 	void GPU::draw(int cycles) {
@@ -79,11 +88,11 @@ namespace gbemu {
         glClear(GL_COLOR_BUFFER_BIT);
 
 		if (CHECK_BIT(lcdc, WINDOW_DISPLAY_ENABLE)) {
-			drawWindow();
+			drawWindow(lcdc);
 		}
 		
 		if (CHECK_BIT(lcdc, BG_DISPLAY)) {
-			drawBackground();
+			drawBackground(lcdc);
 		}
 	}
 }

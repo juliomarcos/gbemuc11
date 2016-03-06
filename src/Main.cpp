@@ -6,6 +6,7 @@
 #include "RomPath.hpp"
 #include "CPU.hpp"
 #include "GPU.hpp"
+#include "Interrupt.hpp"
 
 using namespace std;
 
@@ -77,6 +78,7 @@ int main(int argc, char *argv[]) {
 
 	auto cpu = gbemu::CPU::CPU();
 	auto gpu = gbemu::GPU::GPU(window, cpu);
+	auto interrupts = gbemu::Interrupt(cpu);
 
 	//cpu.loadRom(gbemu::getByteBufferFromPath(romPath)); // TODO: usar isto depois q o bootstrap rodar
 	cpu.loadRom(gbemu::getByteBufferFromPath("./build/bootstrap.bin"));
@@ -98,6 +100,7 @@ int main(int argc, char *argv[]) {
 			cyclesThisInstruction = cpu.emulateNextInstruction();
 			gpu.draw(cyclesThisInstruction);
 			//timers.update(cyclesThisInstruction);
+			interrupts.run();
 			cyclesThisFrame += cyclesThisInstruction;
 		}
 		glfwSwapBuffers(window);

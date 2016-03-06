@@ -9,10 +9,10 @@ namespace gbemu {
 	
 	class GPU {
 		
-		const static int TILE_SET_1 = 0;
-		const static int TILE_SET_2 = 0x800;
-		const static int TILE_MAP_1 = 0x1800;
-		const static int TILE_MAP_2 = 0x1C00;
+		const static int TILE_PATTERNS_TABLE_SPRITE_BG = 0;
+		const static int TILE_PATTERNS_TABLE_BG_WINDOW = 0x800;
+		const static int TILE_BG_MAP_1 = 0x1800;
+		const static int TILE_BG_MAP_2 = 0x1C00;
 		
 	    const static auto LCD_DISPLAY_ENABLE = 7;
 	    const static auto WINDOW_TILE_MAP_DISPLAY_SELECT = 6;
@@ -39,8 +39,8 @@ namespace gbemu {
 		
 		void draw(int cycles);
 		void drawScanLine(uint8_t lcdc, uint8_t currentLine);
-		void drawWindow();
-		void drawBackground();
+		void drawWindow(uint8_t lcdc);
+		void drawBackground(uint8_t lcdc);
 		void reallocatePixelsBuffer();
 		byte* vramToGlBuffer();
 		

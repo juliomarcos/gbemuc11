@@ -10,9 +10,14 @@ namespace gbemu {
 
 	CPU::CPU()
 	{
-		pc = 0;
+		_pc = 0;
+		_sp = 0xFFFE;
+		// af(0x01B0); // TODO: create this register association
+		// bc(0x0013); // TODO: create this register association
+		// de(0x00D8); // TODO: create this register association
+		hl(0x014D);
 		ram[0xFF40] = 0xff;
-		
+				
 		// inserts gibberish on VRAM
 		// remove this later
 		std::default_random_engine generator;
@@ -39,9 +44,9 @@ namespace gbemu {
 		//printf("ram[pc] %x %x %x %x\n", ram[pc], ram[pc+1], ram[pc+2], ram[pc+3]);
 		//printf("vram start %02x %02x %02x %02x %02x %02x %02x %02x\n", ram[VRAM_START], ram[VRAM_START+1], ram[VRAM_START+2], ram[VRAM_START+3], ram[VRAM_START+4], ram[VRAM_START+5], ram[VRAM_START+6], ram[VRAM_START+7]);
 		//printf("vram end %02x %02x %02x %02x %02x %02x %02x %02x\n", ram[VRAM_END], ram[VRAM_END-1], ram[VRAM_END-2], ram[VRAM_END-3], ram[VRAM_END-4], ram[VRAM_END-5], ram[VRAM_END-6], ram[VRAM_END-7]);
-		opcode = ram[pc++];
+		opcode = ram[_pc++];
 		if (opcode == 0xCB) {
-			opcode = (opcode << 8) + ram[pc++];
+			opcode = (opcode << 8) + ram[_pc++];
 		}
 		//printf("fetched: " ANSI_COLOR_GREEN "%x. " ANSI_COLOR_YELLOW , opcode);
 	}
@@ -84,6 +89,14 @@ namespace gbemu {
 		//printf(ANSI_COLOR_RESET "\n");
 	}
 	
+	uint16_t CPU::pc() {
+		return _pc;
+	}
+	
+	void CPU::pc(uint16_t pc) {
+		_pc = pc;
+	}
+	
 	uint16_t CPU::hl() {
 		return (h<<8) + l;
 	}
@@ -98,7 +111,7 @@ namespace gbemu {
 	}
 	
 	void CPU::ly(uint8_t scanline) {
-		ram[0xFF44] = scanline;
+		ram[0xFF44] = scanline; 
 	}
 	
 	uint8_t CPU::scrollX() {
@@ -121,11 +134,53 @@ namespace gbemu {
 		return ram[0xFF40];
 	}
 	
+	uint8_t CPU::lcdcStatus() {
+		return ram[0xFF41];
+	}
+	
+	uint8_t CPU::ire() {
+		return ram[0xFFFF];
+	}
+	
+	int CPU::ime() {
+		return _ime;
+	}
+	
+	void CPU::ime(int enable) {
+		_ime = enable;
+	}
+	
+	uint8_t CPU::irflag() {
+		return ram[0xFF0F];
+	}
+	
+	void CPU::irflag(uint8_t flag) {
+		ram[0xFF0F] = flag;
+	}
+	
 	void CPU::debugger() {
 		// printf("A %x B %x C %x D %x E %x\n", a, b, c, d, e);
 		// printf("PC %x SP %x HL %04x\n", pc, sp, hl());
 		// bitset<8> bits(f);
 		// cout << "F b" << bits << endl;
+	}
+	
+	void CPU::writeRam(uint16_t address, uint8_t value) {
+		// TODO: do several checks here
+		ram[address] = value;
+	}
+
+	void CPU::push(uint16_t word) {
+		_sp -= 2;
+		writeRam(_sp, word);
+		writeRam(_sp+1, (word >> 8));
+	}
+	
+	uint16_t CPU::pop() {
+		uint8_t retp1 = ram[_sp];
+		uint8_t retp2 = ram[_sp+1];
+		_sp += 2;
+		return retp1 + (retp2 << 8) ;
 	}
 
 	byte* CPU::getVramRef() {
@@ -147,15 +202,50 @@ namespace gbemu {
 	
 	uint16_t* CPU::getRegisterPointer(Register16 r) {
 		switch (r) {
-			case PC: return &pc;
-			case SP: return &sp;
+			case PC: return &_pc;
+			case SP: return &_sp;
 			default: throw invalid_argument("\nRegister passed to getRegisterPointer(Register16) is not supported");
 		}
+	}
+
+	void CPU::preInitRom() {
+		rom[0xFF05] = 0x00; 
+		rom[0xFF06] = 0x00; 
+		rom[0xFF07] = 0x00; 
+		rom[0xFF10] = 0x80; 
+		rom[0xFF11] = 0xBF; 
+		rom[0xFF12] = 0xF3; 
+		rom[0xFF14] = 0xBF; 
+		rom[0xFF16] = 0x3F; 
+		rom[0xFF17] = 0x00; 
+		rom[0xFF19] = 0xBF; 
+		rom[0xFF1A] = 0x7F; 
+		rom[0xFF1B] = 0xFF; 
+		rom[0xFF1C] = 0x9F; 
+		rom[0xFF1E] = 0xBF; 
+		rom[0xFF20] = 0xFF; 
+		rom[0xFF21] = 0x00; 
+		rom[0xFF22] = 0x00; 
+		rom[0xFF23] = 0xBF; 
+		rom[0xFF24] = 0x77; 
+		rom[0xFF25] = 0xF3;
+		rom[0xFF26] = 0xF1; 
+		rom[0xFF40] = 0x91; 
+		rom[0xFF42] = 0x00; 
+		rom[0xFF43] = 0x00; 
+		rom[0xFF45] = 0x00; 
+		rom[0xFF47] = 0xFC; 
+		rom[0xFF48] = 0xFF; 
+		rom[0xFF49] = 0xFF; 
+		rom[0xFF4A] = 0x00; 
+		rom[0xFF4B] = 0x00; 
+		rom[0xFFFF] = 0x00; 
 	}
 
 	void CPU::loadRom(shared_ptr<array<byte, CARTRIDGE_SIZE>> bufferPtr)
 	{
 		rom = *bufferPtr;
+		preInitRom();
 		for(size_t i = 0; i < 0x3FF; ++i) // 0x0000-0x3FFF: Permanently-mapped ROM bank.
 		{
 			ram[i] = rom[i];
@@ -173,15 +263,15 @@ namespace gbemu {
 
 	void CPU::ld(Register16 reg, DataType dataType) {
 		if (reg == HL) { // HL is not a register, it's a pair of them.
-			l = ram[pc++];
-			h = ram[pc++];
+			l = ram[_pc++];
+			h = ram[_pc++];
 		} else { 
 			uint16_t* regPtr = getRegisterPointer(reg);
 			if (dataType == D16) {
-				*regPtr = (ram[pc]) + (ram[pc+1] << 8); // little endian
-				pc += 2;
+				*regPtr = (ram[_pc]) + (ram[_pc+1] << 8); // little endian
+				_pc += 2;
 			} else {
-				*regPtr = ram[pc++];
+				*regPtr = ram[_pc++];
 			}	
 		}
 	}
@@ -189,7 +279,7 @@ namespace gbemu {
 	void CPU::ldind(Register16 regA, Operation opA, Register8 regB, Operation opB) {
 		if (regA == HL) { // special case
 			auto vhl = hl();
-			ram[vhl] = *getRegisterPointer(regB);
+			writeRam(vhl, *getRegisterPointer(regB));
 			switch (opA) {
 				case SUB: vhl--; break;
 			}
@@ -213,19 +303,19 @@ namespace gbemu {
 	int CPU::jr(Condition cond, DataType dataType) {
 		int data;
 		switch (dataType) {
-			case R8: data = (int8_t) ram[pc++];
+			case R8: data = (int8_t) ram[_pc++];
 		}
 		switch (cond) {
 			case Z:
 				if (!CHECK_BIT(f, 7)) {
-					pc = pc+data;	
+					_pc += data;	
 					return 12;
 				} else {
 					return 8;
 				}
 			case NZ:
 				if (CHECK_BIT(f, 7)) {
-					pc = pc+data;	
+					_pc += data;	
 					return 12;
 				} else {
 					return 8;
