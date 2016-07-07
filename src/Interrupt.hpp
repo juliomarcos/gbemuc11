@@ -6,13 +6,7 @@
 namespace gbemu {
 	
 	class Interrupt {
-	
-		const static int V_BLANK = 0;
-		const static int LCD_STAT = 1;
-		const static int TIMER = 2;
-		const static int SERIAL = 3;
-		const static int JOYPAD = 4;
-	
+		
 		const static int V_BLANK_LOCATION = 0x40;
 		const static int LCD_STAT_LOCATION = 0x48;
 		const static int TIMER_LOCATION = 0x50;
@@ -22,6 +16,12 @@ namespace gbemu {
 		CPU& cpu;
 		
 	public: 
+		
+		const static int V_BLANK = 0;
+		const static int LCD_STATUS = 1;
+		const static int TIMER = 2;
+		const static int SERIAL = 3;
+		const static int JOYPAD = 4;
 		
 		Interrupt(CPU& cpu) : cpu(cpu) {}
 		virtual ~Interrupt() {}

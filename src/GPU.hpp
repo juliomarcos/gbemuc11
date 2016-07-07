@@ -4,6 +4,7 @@
 #include "BitUtils.hpp"
 
 #include "CPU.hpp"
+#include "Interrupt.hpp"
 
 namespace gbemu {
 	
@@ -23,21 +24,33 @@ namespace gbemu {
 	    const static auto OBJ_SPRITE_DISPLAY_ENABLE = 1;
 	    const static auto BG_DISPLAY = 0;
 		
+		const static auto SCAN_LINE_LENGTH = 456;
+		
+		const static auto H_BLANK = 0;
+		const static auto V_BLANK = 1;
+		const static auto SEARCHING_SPRITES = 2;
+		const static auto TRANSFERING_DATA_LCD = 3;
+		
+		const static auto MODE_2_BOUND = SCAN_LINE_LENGTH - 80;
+		const static auto MODE_3_BOUND = MODE_2_BOUND - 172;
+		
 		int scanlineDelayCounter;
 		GLFWwindow* window;
 		CPU& cpu;
+		Interrupt& interrupt;
 		byte* vram;
 		int width, height;
 		int prevWidth, prevHeight;
 		byte* pixels;
 		
 	public:
-		GPU(GLFWwindow* window, CPU& cpu) : window(window), cpu(cpu), pixels(NULL) {
+		GPU(GLFWwindow* window, CPU& cpu, Interrupt& interrupt) : window(window), cpu(cpu), interrupt(interrupt), pixels(NULL) {
 			vram = cpu.ram+gbemu::VRAM_START;
 		}
 		virtual ~GPU();
 		
 		void draw(int cycles);
+		void setLcdStatus();
 		void drawScanLine(uint8_t lcdc, uint8_t currentLine);
 		void drawWindow(uint8_t lcdc);
 		void drawBackground(uint8_t lcdc);

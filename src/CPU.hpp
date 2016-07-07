@@ -56,10 +56,12 @@ namespace gbemu {
 		void pc(uint16_t pc);
 		uint16_t hl();
 		void hl(uint16_t);
+		uint8_t lyc();
 		uint8_t ly();
 		void ly(uint8_t scanline);
 		uint8_t lcdc();
-		uint8_t lcdcStatus();
+		uint8_t lcdStatus();
+		void lcdStatus(uint8_t newStatus);
 		uint8_t scrollX();
 		uint8_t scrollY();
 		uint8_t windowX();

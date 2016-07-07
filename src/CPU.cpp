@@ -7,6 +7,9 @@ namespace gbemu {
 	const uint8_t HALF_CARRY_FLAG = 32;
 	const uint8_t CARRY_FLAG = 16;
 	const uint8_t NEGATE_ZERO_FLAG = 127;
+	
+	const uint8_t LY = 0xFF44;
+	const uint8_t LYC = 0xFF45;
 
 	CPU::CPU()
 	{
@@ -19,7 +22,7 @@ namespace gbemu {
 		ram[0xFF40] = 0xff;
 				
 		// inserts gibberish on VRAM
-		// remove this later
+		// TODO: remove this later
 		std::default_random_engine generator;
 		std::uniform_int_distribution<int> distribution(0, 0xFF);
 		for(size_t i = 0x9FFF; i >= VRAM_START; i--)
@@ -84,7 +87,7 @@ namespace gbemu {
 				break;
 			default: 
 				break;
-				//printf(">> " ANSI_COLOR_YELLOW "%04x" ANSI_COLOR_RESET " : opcode NOT implemented\n", opcode);
+				printf(">> " ANSI_COLOR_YELLOW "%04x" ANSI_COLOR_RESET " : opcode NOT implemented\n", opcode);
 		}
 		//printf(ANSI_COLOR_RESET "\n");
 	}
@@ -105,13 +108,16 @@ namespace gbemu {
 		h = vhl >> 8;
 		l = (uint8_t) vhl;
 	}
+	uint8_t CPU::lyc() {
+		return ram[LYC];
+	}
 	
 	uint8_t CPU::ly() {
-		return ram[0xFF44];
+		return ram[LY];
 	}
 	
 	void CPU::ly(uint8_t scanline) {
-		ram[0xFF44] = scanline; 
+		ram[LY] = scanline; 
 	}
 	
 	uint8_t CPU::scrollX() {
@@ -134,8 +140,12 @@ namespace gbemu {
 		return ram[0xFF40];
 	}
 	
-	uint8_t CPU::lcdcStatus() {
+	uint8_t CPU::lcdStatus() {
 		return ram[0xFF41];
+	}
+	
+	void CPU::lcdStatus(uint8_t newStatus) {
+		ram[0xFF41] = newStatus;
 	}
 	
 	uint8_t CPU::ire() {
@@ -167,7 +177,12 @@ namespace gbemu {
 	
 	void CPU::writeRam(uint16_t address, uint8_t value) {
 		// TODO: do several checks here
-		ram[address] = value;
+		if (address == LY) {
+			// reset the current scanline if the game tries to write to it
+			ram[address] = 0;
+		} else {			
+			ram[address] = value;
+		}
 	}
 
 	void CPU::push(uint16_t word) {

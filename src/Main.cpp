@@ -6,7 +6,6 @@
 #include "RomPath.hpp"
 #include "CPU.hpp"
 #include "GPU.hpp"
-#include "Interrupt.hpp"
 
 using namespace std;
 
@@ -47,16 +46,15 @@ namespace gbemu {
 
 }
 
-void handler()
-{
+void handler() {
     void *trace_elems[20];
     int trace_elem_count(backtrace( trace_elems, 20 ));
     char **stack_syms(backtrace_symbols( trace_elems, trace_elem_count ));
-    for ( int i = 0 ; i < trace_elem_count ; ++i )
+    for (int i = 0 ; i < trace_elem_count ; ++i)
     {
         std::cout << stack_syms[i] << "\n";
     }
-    free( stack_syms );
+    free(stack_syms);
 
     exit(1);
 }   
@@ -77,8 +75,8 @@ int main(int argc, char *argv[]) {
 	auto window = gbemu::initWindow(160, 144, windowTitle);
 
 	auto cpu = gbemu::CPU::CPU();
-	auto gpu = gbemu::GPU::GPU(window, cpu);
-	auto interrupts = gbemu::Interrupt(cpu);
+	auto interrupt = gbemu::Interrupt(cpu);
+	auto gpu = gbemu::GPU::GPU(window, cpu, interrupt);
 
 	//cpu.loadRom(gbemu::getByteBufferFromPath(romPath)); // TODO: usar isto depois q o bootstrap rodar
 	cpu.loadRom(gbemu::getByteBufferFromPath("./build/bootstrap.bin"));
@@ -100,7 +98,7 @@ int main(int argc, char *argv[]) {
 			cyclesThisInstruction = cpu.emulateNextInstruction();
 			gpu.draw(cyclesThisInstruction);
 			//timers.update(cyclesThisInstruction);
-			interrupts.run();
+			interrupt.run();
 			cyclesThisFrame += cyclesThisInstruction;
 		}
 		glfwSwapBuffers(window);
