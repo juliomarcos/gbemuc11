@@ -28,54 +28,6 @@ namespace gbemu {
 		return pixels;
 	}
 	
-	void GPU::drawBackground(uint8_t lcdc) {
-		auto scrollX = cpu.scrollX();
-		auto scrollY = cpu.scrollY();
-		int bgTileMapOffset;
-		if (!CHECK_BIT(lcdc, BG_TILE_MAP_DISPLAY_SELECT)) {
-			bgTileMapOffset = TILE_BG_MAP_1; // 0~255
-		} else {
-			bgTileMapOffset = TILE_BG_MAP_2; // -128~127
-		}
-		
-		glDrawPixels(width, height, GL_RGB, GL_UNSIGNED_BYTE, vramToGlBuffer());
-	}
-	
-	void GPU::drawWindow(uint8_t lcdc) {
-		auto windowX = cpu.windowX();
-		if (windowX > 166) return;
-		auto windowY = cpu.windowY();
-	}
-	
-	void GPU::draw(int cycles) {
-		
-		setLcdStatus();
-		
-		auto lcdStatus = cpu.lcdStatus();
-		if (CHECK_BIT(lcdStatus, LCD_DISPLAY_ENABLE)) {
-			scanlineDelayCounter -= cycles;
-		} else {
-			return;
-		}
-		if (scanlineDelayCounter > 0) return; 
-		
-		auto currentLine = cpu.ly();
-		cpu.ly(currentLine + 1);
-		
-		cpu.lcdStatus(SEARCHING_SPRITES);
-		
-		if (currentLine == 144) {
-			// printf("V_BLANK Started\n");
-			interrupt.request(Interrupt::V_BLANK);
-		} else if (currentLine > 153) { // V-Blank finished
-			// printf("V_BLANK Finished\n");
-			cpu.ly(0);
-		} else {
-			drawScanLine(lcdStatus, currentLine);
-		}
-		
-	}
-	
 	void GPU::setLcdStatus() {
 		auto lcdStatus = cpu.lcdStatus();
 		if (!CHECK_BIT(lcdStatus, LCD_DISPLAY_ENABLE)) {
@@ -131,6 +83,112 @@ namespace gbemu {
 		cpu.lcdStatus(lcdStatus);
 	}
 	
+	void GPU::drawBackground(uint8_t lcdc) {
+		auto scrollX = cpu.scrollX();
+		auto scrollY = cpu.scrollY();
+		int bgTileMapOffset;
+		if (!CHECK_BIT(lcdc, BG_TILE_MAP_DISPLAY_SELECT)) {
+			bgTileMapOffset = TILE_BG_MAP_1; // 0~255
+		} else {
+			bgTileMapOffset = TILE_BG_MAP_2; // -128~127
+		}
+	}
+	
+	void GPU::drawWindow(uint8_t lcdc) {
+		auto windowX = cpu.windowX();
+		if (windowX > 166) return;
+		auto windowY = cpu.windowY();
+	}
+	
+	void GPU::drawSprites(uint8_t lcdc) {
+		auto spriteSizeIs8x8 = true;
+		if (CHECK_BIT(lcdc, 2)) {
+			spriteSizeIs8x8 = false; // it's 8x16
+		}
+		
+		int scanline = cpu.ly();
+		
+		auto getColorFromPalette = [&](int paletteAddr, int colorCode) {
+			uint8_t palette = cpu.readRam(paletteAddr);
+			auto color = palette >> (6-colorCode*2);
+			return color << 6;
+		};
+		
+		for(size_t i = 0; i < 40; ++i)
+		{
+			uint8_t spriteIndex = i * 4;
+			auto yPos = cpu.readRam(OAM + spriteIndex) - 16;
+			auto xPos = cpu.readRam(OAM + spriteIndex + 1) - 8;
+			uint8_t patternIndex = cpu.readRam(OAM + spriteIndex + 2); 
+			if (!spriteSizeIs8x8) {
+				patternIndex = patternIndex >> 1;
+			}
+			uint8_t attributes = cpu.readRam(OAM + spriteIndex + 3);
+			auto paletteAddr = CHECK_BIT(attributes, 4) ? OBP1 : OBP0;
+			auto xFlip = CHECK_BIT(attributes, 5);
+			auto yFlip = CHECK_BIT(attributes, 6);
+			
+			int ySize = spriteSizeIs8x8 ? 8 : 16;
+			
+			// only draw sprites portions that belong to this scanline
+			if (scanline >= yPos && (yPos+ySize)) {
+				auto spriteLine = scanline - yPos;
+				
+				// TODO: yFlip
+				
+				auto tileAddr = SPRITE_PATTERNS_TABLE + (patternIndex * 16) + spriteLine; // each tile takes 16 bytes
+				auto tileLinePart1 = cpu.readRam(tileAddr);
+				auto tileLinePart2 = cpu.readRam(tileAddr + 1);
+
+				for(size_t i = 0; i < 8; ++i)
+				{
+					auto pixelCode = (CHECK_BIT(tileLinePart1, i) ? 1 : 0) + (CHECK_BIT(tileLinePart2, i) ? 2 : 0);
+					auto pixelColor = getColorFromPalette(paletteAddr, pixelCode);
+					
+					// TODO: xFlip
+					
+					if (pixelColor == 0) continue; // skip white for sprites
+					
+					auto x = xPos+i;
+					auto y = scanline;
+					vram[y*LINE_WIDTH + x] = pixelColor;
+				}
+			}
+		}
+	}
+	
+	void GPU::draw(int cycles) {
+		
+		//printf("draw()\n");
+		
+		setLcdStatus();
+		
+		auto lcdStatus = cpu.lcdStatus();
+		if (CHECK_BIT(lcdStatus, LCD_DISPLAY_ENABLE)) {
+			scanlineDelayCounter -= cycles;
+		} else {
+			// printf("lcd not enabled ");
+			return;
+		}
+		if (scanlineDelayCounter > 0) return; 
+		
+		auto currentLine = cpu.ly();
+		cpu.ly(currentLine + 1);
+		
+		cpu.lcdStatus(SEARCHING_SPRITES);
+		
+		if (currentLine == 144) {
+			printf("V_BLANK Started\n");
+			interrupt.request(Interrupt::V_BLANK);
+		} else if (currentLine > 153) { // V-Blank finished
+			printf("V_BLANK Finished\n");
+			cpu.ly(0);
+		} else {
+			drawScanLine(lcdStatus, currentLine);
+		}
+		
+	}
+	
 	void GPU::drawScanLine(uint8_t lcdStatus, uint8_t currentLine) {
 		
 		// printf("drawScanLine lcdc %x currentLine %d\n", lcdc, currentLine);
@@ -152,5 +210,11 @@ namespace gbemu {
 		if (CHECK_BIT(lcdStatus, BG_DISPLAY)) {
 			drawBackground(lcdStatus);
 		}
+		
+		if (CHECK_BIT(lcdStatus, OBJ_SPRITE_DISPLAY_ENABLE)) {
+			drawSprites(lcdStatus);
+		}
+		
+		glDrawPixels(width, height, GL_RGB, GL_UNSIGNED_BYTE, vramToGlBuffer());
 	}
 }

@@ -14,6 +14,10 @@ namespace gbemu {
 		const static int TILE_PATTERNS_TABLE_BG_WINDOW = 0x800;
 		const static int TILE_BG_MAP_1 = 0x1800;
 		const static int TILE_BG_MAP_2 = 0x1C00;
+		const static int OAM = 0xFE00;
+		const static int OBP0 = 0xFF48;
+		const static int OBP1 = 0xFF49;
+		const static int SPRITE_PATTERNS_TABLE = 0x8000;
 		
 	    const static auto LCD_DISPLAY_ENABLE = 7;
 	    const static auto WINDOW_TILE_MAP_DISPLAY_SELECT = 6;
@@ -25,6 +29,7 @@ namespace gbemu {
 	    const static auto BG_DISPLAY = 0;
 		
 		const static auto SCAN_LINE_LENGTH = 456;
+		const static auto LINE_WIDTH = 160; // pixels
 		
 		const static auto H_BLANK = 0;
 		const static auto V_BLANK = 1;
@@ -54,6 +59,7 @@ namespace gbemu {
 		void drawScanLine(uint8_t lcdc, uint8_t currentLine);
 		void drawWindow(uint8_t lcdc);
 		void drawBackground(uint8_t lcdc);
+		void drawSprites(uint8_t lcdc);
 		void reallocatePixelsBuffer();
 		byte* vramToGlBuffer();
 		

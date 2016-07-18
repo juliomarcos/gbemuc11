@@ -1,5 +1,5 @@
 #include "CPU.hpp"
-
+#include "Logger.hpp"
 namespace gbemu {
 
 	const uint8_t ZERO_FLAG = 128;
@@ -7,9 +7,14 @@ namespace gbemu {
 	const uint8_t HALF_CARRY_FLAG = 32;
 	const uint8_t CARRY_FLAG = 16;
 	const uint8_t NEGATE_ZERO_FLAG = 127;
+		
+	const int ZERO_FLAG_POS = 7;
+	const int SUBTRACT_FLAG_POS = 6;
+	const int HALF_CARRY_FLAG_POS = 5;
+	const int CARRY_FLAG_POS = 4;
 	
-	const uint8_t LY = 0xFF44;
-	const uint8_t LYC = 0xFF45;
+	const uint16_t LY = 0xFF44;
+	const uint16_t LYC = 0xFF45;
 
 	CPU::CPU()
 	{
@@ -47,49 +52,96 @@ namespace gbemu {
 		//printf("ram[pc] %x %x %x %x\n", ram[pc], ram[pc+1], ram[pc+2], ram[pc+3]);
 		//printf("vram start %02x %02x %02x %02x %02x %02x %02x %02x\n", ram[VRAM_START], ram[VRAM_START+1], ram[VRAM_START+2], ram[VRAM_START+3], ram[VRAM_START+4], ram[VRAM_START+5], ram[VRAM_START+6], ram[VRAM_START+7]);
 		//printf("vram end %02x %02x %02x %02x %02x %02x %02x %02x\n", ram[VRAM_END], ram[VRAM_END-1], ram[VRAM_END-2], ram[VRAM_END-3], ram[VRAM_END-4], ram[VRAM_END-5], ram[VRAM_END-6], ram[VRAM_END-7]);
+		Log::d("%04x ", _pc);
 		opcode = ram[_pc++];
 		if (opcode == 0xCB) {
 			opcode = (opcode << 8) + ram[_pc++];
 		}
-		//printf("fetched: " ANSI_COLOR_GREEN "%x. " ANSI_COLOR_YELLOW , opcode);
+		// printf("fetched: " ANSI_COLOR_GREEN "%x. " ANSI_COLOR_YELLOW , opcode);
+		// printf("fetched: %x. ", opcode);
 	}
 	
 	void CPU::decodeAndExecute() {
 		switch(opcode) {
+			case 0x0e:
+				Log::d("LD C,d8");
+				ld(C,D8);
+				duration = 8;
+				break;
+			case 0x11:
+				Log::d("LD DE,d16");
+				ld(DE,D16);
+				duration = 12;
+				break;
 			case 0x20:
-				//printf("JR NZ,r8");
+				Log::d("JR NZ,r8");
 				duration = jr(NZ, R8);
 				break;
 			case 0x21:
-				//printf("LD HL, d16");
+				Log::d("LD HL,d16");
 				ld(HL, D16);
 				duration = 12;
 				break;
 			case 0x31: 
-				//printf("LD SP, d16");
+				Log::d("LD SP,d16");
 				ld(SP, D16);
 				duration = 12;
 				break;
 			case 0x32: 
-				//printf("LD (HL-), A");
+				Log::d("LD (HL-),A");
 				ldind(HL, SUB, A, NOP);
 				duration = 8;
 				break;
+			case 0x3e:
+				Log::d("LD A,d8");
+				ld(A,D8);
+				duration = 8;
+				break;
+			case 0x80:
+				Log::d("ADD A,B");
+				add(A,B);
+				duration = 4;
+				break;
 			case 0xAF:
-				//printf("XOR A");
+				Log::d("XOR A");
 				ixor(A);
 				duration = 4;
 				break;
+			case 0xe2:
+				Log::d("LD (C),A");
+				ldind(C, A);
+				duration = 8;
+				break;
 			case 0xCB7C:
-				//printf("BIT 7, H");
+				Log::d("BIT 7,H");
 				bit(7, H);
 				duration = 8;
 				break;
 			default: 
+				// printf(">> " ANSI_COLOR_YELLOW "%04x" ANSI_COLOR_RESET " : opcode NOT implemented\n", opcode);
+				Log::d(">> %04x : opcode NOT implemented", opcode);
 				break;
-				printf(">> " ANSI_COLOR_YELLOW "%04x" ANSI_COLOR_RESET " : opcode NOT implemented\n", opcode);
 		}
-		//printf(ANSI_COLOR_RESET "\n");
+		// printf(ANSI_COLOR_RESET "\n");
+		printf("\n");
+	}
+	
+	void CPU::add(Register8 reg1, Register8 reg2) {
+		int8_t* reg1Ptr = (int8_t*) getRegisterPointer(reg1);
+		int8_t* reg2Ptr = (int8_t*) getRegisterPointer(reg2);
+		auto oldR1 = *reg1Ptr;
+		*reg1Ptr = (*reg1Ptr) + (*reg2Ptr);
+		if (*reg1Ptr == 0) {
+			SET_BIT(f, ZERO_FLAG_POS);
+		}
+		// TODO: Half Carry
+		Log::d(">> ERROR: Half Carry FLAG not implemented");
+		if ((oldR1) > 0 && (*reg2Ptr) > 0 && (*reg1Ptr < 0)) {
+			SET_BIT(f, CARRY_FLAG_POS);
+		}
+		if ((oldR1) < 0 && (*reg2Ptr) < 0 && (*reg1Ptr > 0)) {
+			SET_BIT(f, CARRY_FLAG_POS);
+		}
 	}
 	
 	uint16_t CPU::pc() {
@@ -184,6 +236,11 @@ namespace gbemu {
 			ram[address] = value;
 		}
 	}
+	
+	uint8_t CPU::readRam(uint16_t address) {
+		// TODO: do several checks here
+		return ram[address];
+	}
 
 	void CPU::push(uint16_t word) {
 		_sp -= 2;
@@ -276,10 +333,22 @@ namespace gbemu {
 		}
 	}
 
+	void CPU::ld(Register8 reg, DataType dataType) {
+		uint8_t* regPtr = getRegisterPointer(reg);
+		*regPtr = ram[_pc++];
+	}
+
 	void CPU::ld(Register16 reg, DataType dataType) {
-		if (reg == HL) { // HL is not a register, it's a pair of them.
+		if (reg == HL) { // HL is not a register, it's a pair of them
 			l = ram[_pc++];
 			h = ram[_pc++];
+		}  else if (reg == SP) {
+			auto s = ram[_pc++];
+			auto p = ram[_pc++];
+			_sp = (s << 8) + p;
+		} else if (reg == DE) { // DE is not a register, it's a pair of them
+			d = ram[_pc++];
+			e = ram[_pc++];
 		} else { 
 			uint16_t* regPtr = getRegisterPointer(reg);
 			if (dataType == D16) {
@@ -300,8 +369,17 @@ namespace gbemu {
 			}
 			hl(vhl);
 		} else {
+			Log::e(">> ERROR: ldind reg16 branch not implemented");
 			// auto *regAptr = getRegisterPointer(regA);
 			// auto *regBptr = getRegisterPointer(regB);
+		}
+	}
+	
+	void CPU::ldind(Register8 reg1, Register8 reg2) {
+		if (reg1 == C) {
+			writeRam(c+0xff00, a);
+		} else {
+			Log::e(">> ERROR: ldind reg8 branch not implemented");
 		}
 	}
 	
@@ -322,14 +400,14 @@ namespace gbemu {
 		}
 		switch (cond) {
 			case Z:
-				if (!CHECK_BIT(f, 7)) {
+				if (CHECK_BIT(f, ZERO_FLAG_POS)) {
 					_pc += data;	
 					return 12;
 				} else {
 					return 8;
 				}
 			case NZ:
-				if (CHECK_BIT(f, 7)) {
+				if (!CHECK_BIT(f, ZERO_FLAG_POS)) {
 					_pc += data;	
 					return 12;
 				} else {
