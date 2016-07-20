@@ -20,10 +20,10 @@ namespace gbemu {
 	const int CLOCK_SPEED = 4194304;
 	
 	enum Register8 { A, B, C, D, E, F, H, L };
-	enum Register16 { HL, SP, PC, BC, DE };
+	enum Register16 { HL, SP, PC, AF, BC, DE };
 	enum DataType { D8, D16, A8, A16, R8 };
 	enum Operation { ADD, SUB, NOP };
-	enum Condition { CR, NC, NZ, Z };
+	enum Condition { NZ, Z, NC, CR, NOC }; // CR -> C, C. is already being used
 	
 	const int VRAM_START = 0x8000;
 	const int VRAM_END 	 = 0x9FFF;
@@ -55,6 +55,14 @@ namespace gbemu {
 		bool checkN() { return znhc[1] == WhatToDo::Check; }
 		bool checkH() { return znhc[2] == WhatToDo::Check; }
 		bool checkC() { return znhc[3] == WhatToDo::Check; }
+		bool zeroZ() { return znhc[0] == WhatToDo::Zero; }
+		bool zeroN() { return znhc[1] == WhatToDo::Zero; }
+		bool zeroH() { return znhc[2] == WhatToDo::Zero; }
+		bool zeroC() { return znhc[3] == WhatToDo::Zero; }
+		bool oneZ() { return znhc[0] == WhatToDo::One; }
+		bool oneN() { return znhc[1] == WhatToDo::One; }
+		bool oneH() { return znhc[2] == WhatToDo::One; }
+		bool oneC() { return znhc[3] == WhatToDo::One; }
 	};
 	
 	class CPU
@@ -103,6 +111,7 @@ namespace gbemu {
 		void irflag(uint8_t flag);
 		
 		void ld(Register8 reg, DataType dataType);
+		void ld(Register8 reg1, Register8 reg2);
 		void ld(Register16 reg, DataType dataType);
 		void ldind(Register16 regA, Operation opA, Register8 regB, Operation opB);
 		void ldind2(Register8 regA, Operation opA, Register16 regB, Operation opB);
@@ -110,9 +119,14 @@ namespace gbemu {
 		void ixor(Register8 reg);
 		void bit(int whichBit, Register8 reg);
 		int jr(Condition cond, DataType dataType); // returns duration. jumps have different durations according to action or no action taken
-		void add(Register8 reg1, Register8 reg2);
-		void add(Register8 reg, int much);
+		void add(Register8 reg1, Register8 reg2, string flags);
+		void add(Register8 reg, int8_t much, string flags);
+		void add(Register16 reg, int8_t much, string flags);
 		void call(DataType dataType);
+		void push(Register16);
+		void rl(Register8);
+		void pop(Register16);
+		void ret(Condition cond);
 
 		void preInitRom();
 		void loadRom(shared_ptr<array<byte, CARTRIDGE_SIZE>> buffer);

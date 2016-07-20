@@ -64,20 +64,40 @@ namespace gbemu {
 	
 	void CPU::decodeAndExecute() {
 		switch(opcode) {
+			case 0x04:
+				Log::d("INC B");
+				add(B, 1, "Z 0 H -");
+				duration = 4;
+				break;
+			case 0x05:
+				Log::d("DEC B");
+				add(B, -1, "Z 1 H -");
+				duration = 4;
+				break;
+			case 0x06:
+				Log::d("LD B,d8");
+				ld(B, D8);
+				duration = 8;
+				break;
 			case 0x0c:
 				Log::d("INC C");
-				add(C,1);
+				add(C, 1, "Z 0 H -");
 				duration = 4;
 				break;
 			case 0x0e:
 				Log::d("LD C,d8");
-				ld(C,D8);
+				ld(C, D8);
 				duration = 8;
 				break;
 			case 0x11:
 				Log::d("LD DE,d16");
-				ld(DE,D16);
+				ld(DE, D16);
 				duration = 12;
+				break;
+			case 0x17:
+				Log::d("RLA");
+				duration = 4;
+				rl(A);
 				break;
 			case 0x20:
 				Log::d("JR NZ,r8");
@@ -87,6 +107,16 @@ namespace gbemu {
 				Log::d("LD HL,d16");
 				ld(HL, D16);
 				duration = 12;
+				break;
+			case 0x22:
+				Log::d("LD (HL+),A");
+				ldind(HL, ADD, A, NOP);
+				duration = 8;
+				break;
+			case 0x23:
+				Log::d("INC HL");
+				add(HL, 1, "- - - -");
+				duration = 8;
 				break;
 			case 0x31: 
 				Log::d("LD SP,d16");
@@ -103,6 +133,11 @@ namespace gbemu {
 				ld(A, D8);
 				duration = 8;
 				break;
+			case 0x4f:
+				Log::d("LD C,A");
+				ld(C, A);
+				duration = 4;
+				break;
 			case 0x77: 
 				Log::d("LD (HL),A");
 				ldind(HL, NOP, A, NOP);
@@ -110,7 +145,7 @@ namespace gbemu {
 				break;
 			case 0x80:
 				Log::d("ADD A,B");
-				add(A,B);
+				add(A, B, "Z 0 H C");
 				duration = 4;
 				break;
 			case 0x1a:
@@ -122,6 +157,21 @@ namespace gbemu {
 				Log::d("XOR A");
 				ixor(A);
 				duration = 4;
+				break;
+			case 0xc1:
+				Log::d("POP BC");
+				pop(BC);
+				duration = 12;
+				break;
+			case 0xc5:
+				Log::d("PUSH BC");
+				push(BC);
+				duration = 16;
+				break;
+			case 0xc9:
+				Log::d("RET");
+				ret(NOC);
+				duration = 16;
 				break;
 			case 0xcd:
 				Log::d("CALL a16");
@@ -138,7 +188,12 @@ namespace gbemu {
 				ldind(C, A);
 				duration = 8;
 				break;
-			case 0xCB7C:
+			case 0xcb11:
+				Log::d("RL C");
+				duration = 8;
+				rl(C);
+				break;	
+			case 0xcb7c:
 				Log::d("BIT 7,H");
 				bit(7, H);
 				duration = 8;
@@ -150,6 +205,64 @@ namespace gbemu {
 		}
 		// printf(ANSI_COLOR_RESET "\n");
 		printf("\n");
+	}
+	
+	void CPU::pop(Register16 reg) {
+		switch(reg) {
+			case Register16::AF:
+				a = readRam(_sp++);
+				f = readRam(_sp++);
+				break;
+			case Register16::BC:
+				b = readRam(_sp++);
+				c = readRam(_sp++);
+				break;
+			case Register16::DE:
+				d = readRam(_sp++);
+				e = readRam(_sp++);
+				break;
+			case Register16::HL:
+				h = readRam(_sp++);
+				l = readRam(_sp++);
+				break;
+		}
+		
+	}
+	
+	void CPU::ret(Condition cond) {
+		switch (cond) {
+			case NOC: break;
+			default:
+				Log::e(">> ERROR: condition not implemented");
+		}
+		auto b1 = readRam(_sp++);
+		auto b2 = readRam(_sp++);
+		uint8_t addr = (b1 << 8) + b2;
+		_pc = addr;
+	}
+	
+	void CPU::rl(Register8 reg) {
+		uint8_t* regPtr = getRegisterPointer(reg);
+		auto v = *regPtr;
+		uint8_t oldCarryFlagMask = (f >> (8-CARRY_FLAG_POS)) & 1;
+		uint8_t clearCarryFlag = (f & ~(1 << CARRY_FLAG_POS));
+		uint8_t bit7InCarryPosition = (v & (1 << 7)) >> (7-CARRY_FLAG_POS);
+		f = clearCarryFlag | bit7InCarryPosition;
+		v = (v << 1) | oldCarryFlagMask;
+		if (v == 0) {
+			RESET_BIT(f, ZERO_FLAG_POS);
+		}
+	}
+	
+	void CPU::push(Register16 reg) {
+		uint16_t v;
+		if (reg == BC) {
+			v = (b << 8) + c;	
+		} else {
+			Log::e("push branch not implemented");
+		}
+		writeRam(_sp, v);
+		_sp -= 2;
 	}
 		
 	void CPU::setCpuFlags(CpuFlags flags, int8_t oldR1, uint8_t* reg1Ptr, uint8_t* reg2Ptr) {
@@ -177,9 +290,32 @@ namespace gbemu {
 		}
 		if (flags.checkH()) {
 			// TODO: Half Carry
-			Log::d(">> ERROR: Half Carry FLAG not implemented");	
+			Log::d(">> ERROR: Half Carry FLAG not implemented\n");	
 		}
-		Log::e("Not doing zeroes and oners");
+		if (flags.zeroZ()) {
+			RESET_BIT(f, ZERO_FLAG_POS);
+		}
+		if (flags.zeroN()) {
+			RESET_BIT(f, SUBTRACT_FLAG_POS);
+		}
+		if (flags.zeroC()) {
+			RESET_BIT(f, CARRY_FLAG_POS);
+		}
+		if (flags.zeroH()) {
+			RESET_BIT(f, HALF_CARRY_FLAG_POS);
+		}
+		if (flags.oneZ()) {
+			SET_BIT(f, ZERO_FLAG_POS);
+		}
+		if (flags.oneN()) {
+			SET_BIT(f, SUBTRACT_FLAG_POS);
+		}
+		if (flags.oneC()) {
+			SET_BIT(f, CARRY_FLAG_POS);
+		}
+		if (flags.oneH()) {
+			SET_BIT(f, HALF_CARRY_FLAG_POS);
+		}
 	}
 	
 	void CPU::call(DataType dataType) {
@@ -188,16 +324,39 @@ namespace gbemu {
 		_pc = nextInstruction;
 	}
 	
-	void CPU::add(Register8 reg1, Register8 reg2) {
+	void CPU::add(Register16 reg, int8_t much, string flags) {
+		int16_t oldR1, newV;
+		uint8_t* reg1Ptr;
+		uint8_t* reg2Ptr;
+		switch (reg) {
+			case HL:
+				oldR1 = (h << 8) + l;
+				reg1Ptr = &h;
+				reg2Ptr = &l;
+				newV += much;
+				h = (uint8_t) (newV >> 8);
+				l = (uint8_t) newV;
+				break;
+			default:
+				Log::e("add not implemented for this register pair");
+				break;
+		}
+		setCpuFlags(CpuFlags(flags), oldR1, reg1Ptr, reg2Ptr);
+	}
+	
+	void CPU::add(Register8 reg1, Register8 reg2, string flags) {
 		int8_t* reg1Ptr = (int8_t*) getRegisterPointer(reg1);
 		int8_t* reg2Ptr = (int8_t*) getRegisterPointer(reg2);
 		int8_t oldR1 = *reg1Ptr;
 		*reg1Ptr = (*reg1Ptr) + (*reg2Ptr);
-		setCpuFlags(CpuFlags("Z 0 H -"), oldR1, getRegisterPointer(reg1), getRegisterPointer(reg2));
+		setCpuFlags(CpuFlags(flags), oldR1, getRegisterPointer(reg1), getRegisterPointer(reg2));
 	}
 	
-	void CPU::add(Register8 reg, int much) {
-		
+	void CPU::add(Register8 reg, int8_t much, string flags) {
+		int8_t* regPtr = (int8_t*) getRegisterPointer(reg);
+		auto oldR = *regPtr;
+		*regPtr += much;
+		setCpuFlags(CpuFlags(flags), oldR, getRegisterPointer(reg), (uint8_t*) &much);
 	}
 	
 	uint16_t CPU::pc() {
@@ -392,6 +551,12 @@ namespace gbemu {
 	void CPU::ld(Register8 reg, DataType dataType) {
 		uint8_t* regPtr = getRegisterPointer(reg);
 		*regPtr = ram[_pc++];
+	}
+	
+	void CPU::ld(Register8 reg1, Register8 reg2) {
+		uint8_t* reg1Ptr = getRegisterPointer(reg1);
+		uint8_t* reg2Ptr = getRegisterPointer(reg2);
+		*reg1Ptr = *reg2Ptr;
 	}
 
 	void CPU::ld(Register16 reg, DataType dataType) {
