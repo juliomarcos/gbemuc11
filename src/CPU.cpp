@@ -1,5 +1,6 @@
 #include "CPU.hpp"
 #include "Logger.hpp"
+
 namespace gbemu {
 
 	const uint8_t ZERO_FLAG = 128;
@@ -63,6 +64,11 @@ namespace gbemu {
 	
 	void CPU::decodeAndExecute() {
 		switch(opcode) {
+			case 0x0c:
+				Log::d("INC C");
+				add(C,1);
+				duration = 4;
+				break;
 			case 0x0e:
 				Log::d("LD C,d8");
 				ld(C,D8);
@@ -94,7 +100,12 @@ namespace gbemu {
 				break;
 			case 0x3e:
 				Log::d("LD A,d8");
-				ld(A,D8);
+				ld(A, D8);
+				duration = 8;
+				break;
+			case 0x77: 
+				Log::d("LD (HL),A");
+				ldind(HL, NOP, A, NOP);
 				duration = 8;
 				break;
 			case 0x80:
@@ -102,10 +113,25 @@ namespace gbemu {
 				add(A,B);
 				duration = 4;
 				break;
-			case 0xAF:
+			case 0x1a:
+				Log::d("LD A,(DE)");
+				duration = 8;
+				ldind2(A, NOP, DE, NOP);
+				break;
+			case 0xaf:
 				Log::d("XOR A");
 				ixor(A);
 				duration = 4;
+				break;
+			case 0xcd:
+				Log::d("CALL a16");
+				call(A16);
+				duration = 24;
+				break;
+			case 0xe0:
+				Log::d("LD C,d8");
+				ld(C, D8);
+				duration = 8;
 				break;
 			case 0xe2:
 				Log::d("LD (C),A");
@@ -125,23 +151,53 @@ namespace gbemu {
 		// printf(ANSI_COLOR_RESET "\n");
 		printf("\n");
 	}
+		
+	void CPU::setCpuFlags(CpuFlags flags, int8_t oldR1, uint8_t* reg1Ptr, uint8_t* reg2Ptr) {
+		if (flags.checkZ()) {
+			if (*reg1Ptr == 0) {
+				SET_BIT(f, ZERO_FLAG_POS);
+			} else {
+				RESET_BIT(f, ZERO_FLAG_POS);
+			}
+		}
+		if (flags.checkN()) {
+			if (*reg1Ptr >=0 && *reg1Ptr <= 127) {
+				SET_BIT(f, SUBTRACT_FLAG_POS);
+			} else {
+				RESET_BIT(f, SUBTRACT_FLAG_POS);
+			}
+		}
+		if (flags.checkC()) {
+			if ((oldR1) > 0 && (*reg2Ptr) > 0 && (*reg1Ptr < 0)) {
+				SET_BIT(f, CARRY_FLAG_POS);
+			}
+			if ((oldR1) < 0 && (*reg2Ptr) < 0 && (*reg1Ptr > 0)) {
+				SET_BIT(f, CARRY_FLAG_POS);
+			}	
+		}
+		if (flags.checkH()) {
+			// TODO: Half Carry
+			Log::d(">> ERROR: Half Carry FLAG not implemented");	
+		}
+		Log::e("Not doing zeroes and oners");
+	}
+	
+	void CPU::call(DataType dataType) {
+		auto nextInstruction = readRam(_pc) + (readRam(_pc+1) << 8);
+		writeRam(_sp, readRam(_pc));
+		_pc = nextInstruction;
+	}
 	
 	void CPU::add(Register8 reg1, Register8 reg2) {
 		int8_t* reg1Ptr = (int8_t*) getRegisterPointer(reg1);
 		int8_t* reg2Ptr = (int8_t*) getRegisterPointer(reg2);
-		auto oldR1 = *reg1Ptr;
+		int8_t oldR1 = *reg1Ptr;
 		*reg1Ptr = (*reg1Ptr) + (*reg2Ptr);
-		if (*reg1Ptr == 0) {
-			SET_BIT(f, ZERO_FLAG_POS);
-		}
-		// TODO: Half Carry
-		Log::d(">> ERROR: Half Carry FLAG not implemented");
-		if ((oldR1) > 0 && (*reg2Ptr) > 0 && (*reg1Ptr < 0)) {
-			SET_BIT(f, CARRY_FLAG_POS);
-		}
-		if ((oldR1) < 0 && (*reg2Ptr) < 0 && (*reg1Ptr > 0)) {
-			SET_BIT(f, CARRY_FLAG_POS);
-		}
+		setCpuFlags(CpuFlags("Z 0 H -"), oldR1, getRegisterPointer(reg1), getRegisterPointer(reg2));
+	}
+	
+	void CPU::add(Register8 reg, int much) {
+		
 	}
 	
 	uint16_t CPU::pc() {
@@ -372,6 +428,25 @@ namespace gbemu {
 			Log::e(">> ERROR: ldind reg16 branch not implemented");
 			// auto *regAptr = getRegisterPointer(regA);
 			// auto *regBptr = getRegisterPointer(regB);
+		}
+	}
+	
+	void CPU::ldind2(Register8 regA, Operation opA, Register16 regB, Operation opB) {
+		uint8_t v;
+		if (regB == BC) {
+			auto bPtr = getRegisterPointer(B);
+			auto cPtr = getRegisterPointer(C);
+			v = (*bPtr << 8) + (*cPtr);
+		} else if (regB == DE) {
+			auto dPtr = getRegisterPointer(D);
+			auto ePtr = getRegisterPointer(E);
+			v = (*dPtr << 8) + (*ePtr);
+		} else {
+			v = readRam(*getRegisterPointer(regB));
+		}
+		*getRegisterPointer(regA) = v;
+		if (opA != Operation::NOP || opB != Operation::NOP) {
+			Log::e("ldind2() branch not implemented");
 		}
 	}
 	

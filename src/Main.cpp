@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
 		glfwPollEvents();
 		
 		// TOOD: ETST
-		//cycles -= cyclesThisInstruction;
+		cycles -= cyclesThisInstruction;
 		if (cycles <= 0) break;
 	}
 

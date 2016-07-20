@@ -5,6 +5,7 @@
 #include <bitset>
 #include <random>
 #include <exception>
+#include <string>
 
 #include "StdLibraries.hpp"
 #include "ColoredStdOut.hpp"
@@ -19,13 +20,42 @@ namespace gbemu {
 	const int CLOCK_SPEED = 4194304;
 	
 	enum Register8 { A, B, C, D, E, F, H, L };
-	enum Register16 { HL, SP, PC, DE };
+	enum Register16 { HL, SP, PC, BC, DE };
 	enum DataType { D8, D16, A8, A16, R8 };
 	enum Operation { ADD, SUB, NOP };
 	enum Condition { CR, NC, NZ, Z };
 	
 	const int VRAM_START = 0x8000;
 	const int VRAM_END 	 = 0x9FFF;
+	
+	class CpuFlags {
+		enum WhatToDo {
+			Nothing = 0,
+			Check = 1 << 0,
+			Zero  = 1 << 1,
+			One   = 1 << 2
+		};
+		WhatToDo znhc[4];
+	public:
+		CpuFlags(string flags) {
+			flags.erase(remove_if(	flags.begin(), 
+									flags.end(), 
+									[](char c){return isspace(c);}),
+						flags.end());
+			int current = 0;
+			for(char& c : flags) {
+				if (c == '-') 		znhc[current] = WhatToDo::Nothing;
+				else if (c == '1') 	znhc[current] = WhatToDo::One;
+				else if (c == '0') 	znhc[current] = WhatToDo::Zero;
+				else 				znhc[current] = WhatToDo::Check;
+				current += 1;
+			}
+		}
+		bool checkZ() { return znhc[0] == WhatToDo::Check; }
+		bool checkN() { return znhc[1] == WhatToDo::Check; }
+		bool checkH() { return znhc[2] == WhatToDo::Check; }
+		bool checkC() { return znhc[3] == WhatToDo::Check; }
+	};
 	
 	class CPU
 	{
@@ -75,11 +105,14 @@ namespace gbemu {
 		void ld(Register8 reg, DataType dataType);
 		void ld(Register16 reg, DataType dataType);
 		void ldind(Register16 regA, Operation opA, Register8 regB, Operation opB);
+		void ldind2(Register8 regA, Operation opA, Register16 regB, Operation opB);
 		void ldind(Register8 reg1, Register8 reg2);
 		void ixor(Register8 reg);
 		void bit(int whichBit, Register8 reg);
 		int jr(Condition cond, DataType dataType); // returns duration. jumps have different durations according to action or no action taken
 		void add(Register8 reg1, Register8 reg2);
+		void add(Register8 reg, int much);
+		void call(DataType dataType);
 
 		void preInitRom();
 		void loadRom(shared_ptr<array<byte, CARTRIDGE_SIZE>> buffer);
@@ -88,6 +121,7 @@ namespace gbemu {
 		uint8_t a, b, c, d, e, f, h, l;
 		uint16_t _pc, _sp;
 		
+		void setCpuFlags(CpuFlags flags, int8_t oldR1, uint8_t* reg1Ptr, uint8_t* reg2Ptr);
 	};
 
 }
