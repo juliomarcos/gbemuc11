@@ -1,5 +1,4 @@
 #include "CPU.hpp"
-#include "Logger.hpp"
 
 namespace gbemu {
 
@@ -50,6 +49,9 @@ namespace gbemu {
 	}
 
 	void CPU::fetch() {
+		// cout << "B " << bitset<8>(b) << "\tC " << bitset<8>(c) << "\n";
+		// cout << "H " << bitset<8>(h) << "\tL " << bitset<8>(l) << "\n";
+		// cout << "F " << bitset<8>(f) << "\n";
 		//printf("ram[pc] %x %x %x %x\n", ram[pc], ram[pc+1], ram[pc+2], ram[pc+3]);
 		//printf("vram start %02x %02x %02x %02x %02x %02x %02x %02x\n", ram[VRAM_START], ram[VRAM_START+1], ram[VRAM_START+2], ram[VRAM_START+3], ram[VRAM_START+4], ram[VRAM_START+5], ram[VRAM_START+6], ram[VRAM_START+7]);
 		//printf("vram end %02x %02x %02x %02x %02x %02x %02x %02x\n", ram[VRAM_END], ram[VRAM_END-1], ram[VRAM_END-2], ram[VRAM_END-3], ram[VRAM_END-4], ram[VRAM_END-5], ram[VRAM_END-6], ram[VRAM_END-7]);
@@ -66,12 +68,12 @@ namespace gbemu {
 		switch(opcode) {
 			case 0x04:
 				Log::d("INC B");
-				add(B, 1, "Z 0 H -");
+				inc(B, "Z 0 H -");
 				duration = 4;
 				break;
 			case 0x05:
 				Log::d("DEC B");
-				add(B, -1, "Z 1 H -");
+				dec(B, "Z 1 H -");
 				duration = 4;
 				break;
 			case 0x06:
@@ -81,7 +83,7 @@ namespace gbemu {
 				break;
 			case 0x0c:
 				Log::d("INC C");
-				add(C, 1, "Z 0 H -");
+				inc(C, "Z 0 H -");
 				duration = 4;
 				break;
 			case 0x0e:
@@ -115,7 +117,7 @@ namespace gbemu {
 				break;
 			case 0x23:
 				Log::d("INC HL");
-				add(HL, 1, "- - - -");
+				inc(HL, "- - - -");
 				duration = 8;
 				break;
 			case 0x31: 
@@ -200,33 +202,22 @@ namespace gbemu {
 				break;
 			default: 
 				// printf(">> " ANSI_COLOR_YELLOW "%04x" ANSI_COLOR_RESET " : opcode NOT implemented\n", opcode);
-				Log::d(">> %04x : opcode NOT implemented", opcode);
+				Log::e(">> %04x : opcode NOT implemented", opcode);
 				break;
 		}
 		// printf(ANSI_COLOR_RESET "\n");
-		printf("\n");
+		Log::d("\n");
 	}
 	
-	void CPU::pop(Register16 reg) {
-		switch(reg) {
-			case Register16::AF:
-				a = readRam(_sp++);
-				f = readRam(_sp++);
-				break;
-			case Register16::BC:
-				b = readRam(_sp++);
-				c = readRam(_sp++);
-				break;
-			case Register16::DE:
-				d = readRam(_sp++);
-				e = readRam(_sp++);
-				break;
-			case Register16::HL:
-				h = readRam(_sp++);
-				l = readRam(_sp++);
-				break;
-		}
-		
+	uint16_t CPU::readWord(uint16_t addr) {
+		return readRam(addr) + (readRam(addr+1) << 8);
+	}
+	
+	void CPU::call(DataType dataType) {
+		writeRam(--_sp, (_pc+2) >> 8); // b1
+		writeRam(--_sp, _pc+2); // b2 works using truncation
+		auto nextInstruction = readWord(_pc);
+		_pc = nextInstruction;
 	}
 	
 	void CPU::ret(Condition cond) {
@@ -235,9 +226,8 @@ namespace gbemu {
 			default:
 				Log::e(">> ERROR: condition not implemented");
 		}
-		auto b1 = readRam(_sp++);
-		auto b2 = readRam(_sp++);
-		uint8_t addr = (b1 << 8) + b2;
+		uint16_t addr = readWord(_sp);
+		_sp += 2;
 		_pc = addr;
 	}
 	
@@ -249,81 +239,97 @@ namespace gbemu {
 		uint8_t bit7InCarryPosition = (v & (1 << 7)) >> (7-CARRY_FLAG_POS);
 		f = clearCarryFlag | bit7InCarryPosition;
 		v = (v << 1) | oldCarryFlagMask;
+		*regPtr = v;
 		if (v == 0) {
-			RESET_BIT(f, ZERO_FLAG_POS);
+			f = RESET_BIT(f, ZERO_FLAG_POS);
 		}
 	}
 	
 	void CPU::push(Register16 reg) {
 		uint16_t v;
 		if (reg == BC) {
-			v = (b << 8) + c;	
+			writeRam(--_sp, b);
+			writeRam(--_sp, c);
 		} else {
 			Log::e("push branch not implemented");
 		}
-		writeRam(_sp, v);
-		_sp -= 2;
 	}
-		
-	void CPU::setCpuFlags(CpuFlags flags, int8_t oldR1, uint8_t* reg1Ptr, uint8_t* reg2Ptr) {
+	
+	void CPU::pop(Register16 reg) {
+		switch(reg) {
+			case Register16::AF:
+				f = readRam(_sp++);
+				a = readRam(_sp++);
+				break;
+			case Register16::BC:
+				c = readRam(_sp++);
+				b = readRam(_sp++);
+				break;
+			case Register16::DE:
+				e = readRam(_sp++);
+				d = readRam(_sp++);
+				break;
+			case Register16::HL:
+				l = readRam(_sp++);
+				h = readRam(_sp++);
+				break;
+		}
+	}
+	
+	template<typename T>	
+	void CPU::setCpuFlags(CpuFlags flags, T oldR1, T* reg1Ptr, T* reg2Ptr) {
 		if (flags.checkZ()) {
 			if (*reg1Ptr == 0) {
-				SET_BIT(f, ZERO_FLAG_POS);
+				f = SET_BIT(f, ZERO_FLAG_POS);
 			} else {
-				RESET_BIT(f, ZERO_FLAG_POS);
+				f = RESET_BIT(f, ZERO_FLAG_POS);
 			}
 		}
 		if (flags.checkN()) {
 			if (*reg1Ptr >=0 && *reg1Ptr <= 127) {
-				SET_BIT(f, SUBTRACT_FLAG_POS);
+				f = SET_BIT(f, SUBTRACT_FLAG_POS);
 			} else {
-				RESET_BIT(f, SUBTRACT_FLAG_POS);
+				f = RESET_BIT(f, SUBTRACT_FLAG_POS);
 			}
 		}
 		if (flags.checkC()) {
 			if ((oldR1) > 0 && (*reg2Ptr) > 0 && (*reg1Ptr < 0)) {
-				SET_BIT(f, CARRY_FLAG_POS);
+				f = SET_BIT(f, CARRY_FLAG_POS);
 			}
 			if ((oldR1) < 0 && (*reg2Ptr) < 0 && (*reg1Ptr > 0)) {
-				SET_BIT(f, CARRY_FLAG_POS);
+				f = SET_BIT(f, CARRY_FLAG_POS);
 			}	
 		}
 		if (flags.checkH()) {
 			// TODO: Half Carry
-			Log::d(">> ERROR: Half Carry FLAG not implemented\n");	
+			Log::i(">> ERROR: Half Carry FLAG not implemented\n");	
 		}
 		if (flags.zeroZ()) {
-			RESET_BIT(f, ZERO_FLAG_POS);
+			f = RESET_BIT(f, ZERO_FLAG_POS);
 		}
 		if (flags.zeroN()) {
-			RESET_BIT(f, SUBTRACT_FLAG_POS);
+			f = RESET_BIT(f, SUBTRACT_FLAG_POS);
 		}
 		if (flags.zeroC()) {
-			RESET_BIT(f, CARRY_FLAG_POS);
+			f = RESET_BIT(f, CARRY_FLAG_POS);
 		}
 		if (flags.zeroH()) {
-			RESET_BIT(f, HALF_CARRY_FLAG_POS);
+			f = RESET_BIT(f, HALF_CARRY_FLAG_POS);
 		}
 		if (flags.oneZ()) {
-			SET_BIT(f, ZERO_FLAG_POS);
+			f = SET_BIT(f, ZERO_FLAG_POS);
 		}
 		if (flags.oneN()) {
-			SET_BIT(f, SUBTRACT_FLAG_POS);
+			f = SET_BIT(f, SUBTRACT_FLAG_POS);
 		}
 		if (flags.oneC()) {
-			SET_BIT(f, CARRY_FLAG_POS);
+			f = SET_BIT(f, CARRY_FLAG_POS);
 		}
 		if (flags.oneH()) {
-			SET_BIT(f, HALF_CARRY_FLAG_POS);
+			f = SET_BIT(f, HALF_CARRY_FLAG_POS);
 		}
 	}
-	
-	void CPU::call(DataType dataType) {
-		auto nextInstruction = readRam(_pc) + (readRam(_pc+1) << 8);
-		writeRam(_sp, readRam(_pc));
-		_pc = nextInstruction;
-	}
-	
+
 	void CPU::add(Register16 reg, int8_t much, string flags) {
 		int16_t oldR1, newV;
 		uint8_t* reg1Ptr;
@@ -341,7 +347,7 @@ namespace gbemu {
 				Log::e("add not implemented for this register pair");
 				break;
 		}
-		setCpuFlags(CpuFlags(flags), oldR1, reg1Ptr, reg2Ptr);
+		setCpuFlags(CpuFlags(flags), oldR1, (int16_t*) reg1Ptr, (int16_t*) reg2Ptr);
 	}
 	
 	void CPU::add(Register8 reg1, Register8 reg2, string flags) {
@@ -349,14 +355,36 @@ namespace gbemu {
 		int8_t* reg2Ptr = (int8_t*) getRegisterPointer(reg2);
 		int8_t oldR1 = *reg1Ptr;
 		*reg1Ptr = (*reg1Ptr) + (*reg2Ptr);
-		setCpuFlags(CpuFlags(flags), oldR1, getRegisterPointer(reg1), getRegisterPointer(reg2));
+		setCpuFlags(CpuFlags(flags), oldR1, (int8_t*) getRegisterPointer(reg1), (int8_t*) getRegisterPointer(reg2));
 	}
 	
-	void CPU::add(Register8 reg, int8_t much, string flags) {
-		int8_t* regPtr = (int8_t*) getRegisterPointer(reg);
+	void CPU::inc(Register16 reg, string flags) {
+		uint16_t oldR;
+		uint16_t* valuePtr;
+		switch (reg) {
+			case HL:
+				oldR = hl();
+				oldR -= 1;
+				hl(oldR);
+				valuePtr = &oldR;
+				break;
+		}
+		setCpuFlags(CpuFlags(flags), oldR, valuePtr, valuePtr);
+	}
+	
+	void CPU::inc(Register8 reg, string flags) {
+		uint8_t* regPtr = getRegisterPointer(reg);
 		auto oldR = *regPtr;
-		*regPtr += much;
-		setCpuFlags(CpuFlags(flags), oldR, getRegisterPointer(reg), (uint8_t*) &much);
+		*regPtr = (*regPtr) + 1;
+		setCpuFlags(CpuFlags(flags), oldR, regPtr, regPtr);
+	}
+	
+	void CPU::dec(Register8 reg, string flags) {
+		uint8_t* regPtr = getRegisterPointer(reg);
+		uint8_t oldR = *regPtr;
+		*regPtr = oldR - 1;
+		// cout << " before " << bitset<8>(oldR) << " after " << bitset<8>(*regPtr) << endl;
+		setCpuFlags(CpuFlags(flags), oldR, regPtr, regPtr);
 	}
 	
 	uint16_t CPU::pc() {
@@ -625,12 +653,13 @@ namespace gbemu {
 	
 	void CPU::bit(int whichBit, Register8 reg) {
 		auto v = *getRegisterPointer(reg);
-		//printf("BIT execution. H %x\n", v);
-		if (CHECK_BIT(v, whichBit)) {
-			f = f | ZERO_FLAG;
+		if (!CHECK_BIT(v, whichBit)) {
+			f = SET_BIT(f, ZERO_FLAG_POS);
 		} else {
-			f = f & NEGATE_ZERO_FLAG;
+			f = RESET_BIT(f, ZERO_FLAG_POS);
 		}
+		f = RESET_BIT(f, SUBTRACT_FLAG_POS);
+		f = SET_BIT(f, HALF_CARRY_FLAG_POS);
 	}
 	
 	int CPU::jr(Condition cond, DataType dataType) {

@@ -11,6 +11,7 @@
 #include "ColoredStdOut.hpp"
 #include "TypeDefinitions.hpp"
 #include "BitUtils.hpp"
+#include "Logger.hpp"
 
 using namespace std;
 
@@ -88,6 +89,7 @@ namespace gbemu {
 		uint16_t pop();
 		void writeRam(uint16_t address, uint8_t word);
 		byte readRam(uint16_t address);
+		uint16_t readWord(uint16_t address);
 		byte* getVramRef();
 		
 		uint16_t pc();
@@ -122,6 +124,9 @@ namespace gbemu {
 		void add(Register8 reg1, Register8 reg2, string flags);
 		void add(Register8 reg, int8_t much, string flags);
 		void add(Register16 reg, int8_t much, string flags);
+		void inc(Register8 reg, string flags);
+		void inc(Register16 reg, string flags);
+		void dec(Register8 reg, string flags);
 		void call(DataType dataType);
 		void push(Register16);
 		void rl(Register8);
@@ -135,7 +140,8 @@ namespace gbemu {
 		uint8_t a, b, c, d, e, f, h, l;
 		uint16_t _pc, _sp;
 		
-		void setCpuFlags(CpuFlags flags, int8_t oldR1, uint8_t* reg1Ptr, uint8_t* reg2Ptr);
+		template<typename T> 
+		void setCpuFlags(CpuFlags flags, T oldR1, T* reg1Ptr, T* reg2Ptr);
 	};
 
 }

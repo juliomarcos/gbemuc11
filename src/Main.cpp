@@ -6,6 +6,9 @@
 #include "RomPath.hpp"
 #include "CPU.hpp"
 #include "GPU.hpp"
+#include "Logger.hpp"
+
+gbemu::LogLevel gbemu::Log::currentLogLevel = gbemu::LogLevel::DEBUG;
 
 using namespace std;
 
@@ -59,7 +62,6 @@ void handler() {
     exit(1);
 }   
 
-
 int main(int argc, char *argv[]) {
 
 	set_terminate(handler);
@@ -81,7 +83,7 @@ int main(int argc, char *argv[]) {
 	//cpu.loadRom(gbemu::getByteBufferFromPath(romPath)); // TODO: usar isto depois q o bootstrap rodar
 	cpu.loadRom(gbemu::getByteBufferFromPath("./build/bootstrap.bin"));
 
-	auto cycles = 1;
+	auto cycles = 150;
 	//auto cycles = 3 + 8191*3 + 9;
 	// for(size_t i = 0; i < cycles; ++i)
 	// {

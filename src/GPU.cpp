@@ -33,8 +33,8 @@ namespace gbemu {
 		if (!CHECK_BIT(lcdStatus, LCD_DISPLAY_ENABLE)) {
 			scanlineDelayCounter = SCAN_LINE_LENGTH; // it takes 456 cycles to draw one scanline
 			cpu.ly(0);
-			SET_BIT(lcdStatus, 0); // set mode to SEARCHING_SPRITES
-			SET_BIT(lcdStatus, 1); // set mode to SEARCHING_SPRITES
+			lcdStatus = SET_BIT(lcdStatus, 0); // set mode to SEARCHING_SPRITES
+			lcdStatus = SET_BIT(lcdStatus, 1); // set mode to SEARCHING_SPRITES
 			cpu.lcdStatus(lcdStatus);
 			return;
 		}
@@ -46,23 +46,23 @@ namespace gbemu {
 		
 		if (currentLine >= 144) { // beginning of a V-Blank
 			newMode = V_BLANK;
-			RESET_BIT(lcdStatus, 1);
-			SET_BIT(lcdStatus, 0);
+			lcdStatus = RESET_BIT(lcdStatus, 1);
+			lcdStatus = SET_BIT(lcdStatus, 0);
 			requiresInterruption = CHECK_BIT(lcdStatus, 4);
 		} else {
 			if (scanlineDelayCounter >= MODE_2_BOUND) {
 				newMode = SEARCHING_SPRITES;
-				RESET_BIT(lcdStatus, 0);
-				SET_BIT(lcdStatus, 1);
+				lcdStatus = RESET_BIT(lcdStatus, 0);
+				lcdStatus = SET_BIT(lcdStatus, 1);
 				requiresInterruption = CHECK_BIT(lcdStatus, 5);
 			} else if (scanlineDelayCounter >= MODE_3_BOUND) {
 				newMode = TRANSFERING_DATA_LCD;
-				SET_BIT(lcdStatus, 0);
-				SET_BIT(lcdStatus, 1);
+				lcdStatus = SET_BIT(lcdStatus, 0);
+				lcdStatus = SET_BIT(lcdStatus, 1);
 			} else {
 				newMode = H_BLANK;
-				RESET_BIT(lcdStatus, 0);
-				RESET_BIT(lcdStatus, 1);
+				lcdStatus = RESET_BIT(lcdStatus, 0);
+				lcdStatus = RESET_BIT(lcdStatus, 1);
 				requiresInterruption = CHECK_BIT(lcdStatus, 3);
 			}
 		}
@@ -72,12 +72,12 @@ namespace gbemu {
 		}
 		
 		if (cpu.ly() == cpu.lyc()) {
-			SET_BIT(lcdStatus, 2);
+			lcdStatus = SET_BIT(lcdStatus, 2);
 			if (CHECK_BIT(lcdStatus, 6)) {
 				interrupt.request(Interrupt::LCD_STATUS);
 			}
 		} else {
-			RESET_BIT(lcdStatus, 2);
+			lcdStatus = RESET_BIT(lcdStatus, 2);
 		}
 		
 		cpu.lcdStatus(lcdStatus);

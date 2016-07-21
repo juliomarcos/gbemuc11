@@ -1,5 +1,4 @@
-#ifndef GBEMU_LOGGER
-#define GBEMU_LOGGER
+#pragma once
 
 #include <cstdio>
 
@@ -12,17 +11,17 @@ namespace gbemu {
 	};
 	
 	class Log {
-		static LogLevel logLevel;
 	public: 
+		static LogLevel currentLogLevel;
 		static void d(const char *format, ...) {
-			if (logLevel > LogLevel::DEBUG) return;
+			if (currentLogLevel > LogLevel::DEBUG) return;
 			va_list arg;
 			va_start (arg, format);
 			vprintf(format, arg);
 			va_end (arg);
 		}
 		static void i(const char *format, ...) {
-			if (logLevel > LogLevel::INFO) return;
+			if (currentLogLevel > LogLevel::INFO) return;
 			va_list arg;
 			va_start (arg, format);
 			vprintf(format, arg);
@@ -38,8 +37,4 @@ namespace gbemu {
 		virtual ~Log();
 	};
 	
-	LogLevel Log::logLevel = LogLevel::DEBUG;
-	
 }
-
-#endif
