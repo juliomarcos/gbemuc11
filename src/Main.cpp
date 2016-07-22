@@ -107,8 +107,8 @@ int main(int argc, char *argv[]) {
 		glfwPollEvents();
 		
 		// TODO: remover this artificial for tests only limitation
-		cycles -= cyclesThisInstruction;
-		if (cycles <= 0) break;
+		// cycles -= cyclesThisInstruction;
+		// if (cycles <= 0) break;
 	}
 
 	glfwTerminate();

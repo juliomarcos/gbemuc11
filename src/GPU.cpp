@@ -12,20 +12,15 @@ namespace gbemu {
 		}
 		pixels = new byte[width * height * 3];
 	}
-
-	byte* GPU::vramToGlBuffer() {
-		auto j = 0;
-		for(size_t i = 0; i < (gbemu::VRAM_END - gbemu::VRAM_START); i++) {
-			auto color = vram[i];
-			switch (color) {
-				case 0: pixels[j++] = 242; pixels[j++] = 242; pixels[j++] = 242; break;
-				case 1: pixels[j++] = 182; pixels[j++] = 182; pixels[j++] = 182; break;
-				case 2: pixels[j++] = 96; pixels[j++] = 96; pixels[j++] = 96; break;
-				case 3: pixels[j++] = 10; pixels[j++] = 10; pixels[j++] = 10; break;
-				default: pixels[j++] = 255; pixels[j++] = 0; pixels[j++] = 144; // printf("VRAM BUFFER ERROR\n"); break;
-			}
+	
+	void GPU::writePixel(int color, int j) {
+		switch (color) {
+			case 0: pixels[j++] = 242; pixels[j++] = 242; pixels[j++] = 242; break;
+			case 1: pixels[j++] = 182; pixels[j++] = 182; pixels[j++] = 182; break;
+			case 2: pixels[j++] = 96; pixels[j++] = 96; pixels[j++] = 96; break;
+			case 3: pixels[j++] = 10; pixels[j++] = 10; pixels[j++] = 10; break;
+			default: pixels[j++] = 255; pixels[j++] = 0; pixels[j++] = 144; Log::e(">> VRAM BUFFER ERROR\n"); break;
 		}
-		return pixels;
 	}
 	
 	void GPU::setLcdStatus() {
@@ -151,7 +146,7 @@ namespace gbemu {
 					
 					auto x = xPos+i;
 					auto y = scanline;
-					vram[y*LINE_WIDTH + x] = pixelColor;
+					writePixel(pixelColor, y*LINE_WIDTH + x);
 				}
 			}
 		}
@@ -187,6 +182,8 @@ namespace gbemu {
 			drawScanLine(cpu.lcdStatus(), currentLine);
 		}
 		
+		glDrawPixels(width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+		
 	}
 	
 	void GPU::drawScanLine(uint8_t lcdStatus, uint8_t currentLine) {
@@ -215,6 +212,5 @@ namespace gbemu {
 			drawSprites(lcdStatus);
 		}
 		
-		glDrawPixels(width, height, GL_RGB, GL_UNSIGNED_BYTE, vramToGlBuffer());
 	}
 }

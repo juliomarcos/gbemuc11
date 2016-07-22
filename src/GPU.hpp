@@ -44,14 +44,12 @@ namespace gbemu {
 		GLFWwindow* window;
 		CPU& cpu;
 		Interrupt& interrupt;
-		byte* vram;
 		int width, height;
 		int prevWidth, prevHeight;
 		byte* pixels;
 		
 	public:
 		GPU(GLFWwindow* window, CPU& cpu, Interrupt& interrupt) : window(window), cpu(cpu), interrupt(interrupt), pixels(NULL) {
-			vram = cpu.ram+gbemu::VRAM_START;
 		}
 		virtual ~GPU();
 		
@@ -62,7 +60,7 @@ namespace gbemu {
 		void drawBackground(uint8_t lcdc);
 		void drawSprites(uint8_t lcdc);
 		void reallocatePixelsBuffer();
-		byte* vramToGlBuffer();
+		void writePixel(int,int);
 		
 	};
 }
