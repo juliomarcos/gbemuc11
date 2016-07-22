@@ -134,6 +134,7 @@ namespace gbemu {
 		void pop(Register16);
 		void ret(Condition cond);
 		void cp(DataType dataType);
+		void cpind(Register16);
 		void ldhE0();
 		void ldhF0();
 		void ldind(DataType dataType, Register8 reg);

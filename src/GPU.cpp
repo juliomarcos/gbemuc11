@@ -178,10 +178,10 @@ namespace gbemu {
 		cpu.lcdStatus(SEARCHING_SPRITES);
 		
 		if (currentLine == 144) {
-			printf("V_BLANK Started\n");
+			Log::d("V_BLANK Started\n");
 			interrupt.request(Interrupt::V_BLANK);
 		} else if (currentLine > 153) { // V-Blank finished
-			printf("V_BLANK Finished\n");
+			Log::d("V_BLANK Finished\n");
 			cpu.ly(0);
 		} else {
 			drawScanLine(cpu.lcdStatus(), currentLine);

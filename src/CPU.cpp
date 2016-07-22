@@ -50,8 +50,8 @@ namespace gbemu {
 	void CPU::fetch() {
 		// if (d_count++ >= 1 && d_count < 90000) {
 		// 	gbemu::Log::currentLogLevel = gbemu::LogLevel::DEBUG;
-			cout << "A " << bitset<8>(a) << "\tE " << bitset<8>(e) << "\n";
-			cout << "D " << bitset<8>(d) << "\tE " << bitset<8>(e) << "\n";
+			// cout << "A " << bitset<8>(a) << "\tE " << bitset<8>(e) << "\n";
+			// cout << "D " << bitset<8>(d) << "\tE " << bitset<8>(e) << "\n";
 			// cout << "B " << bitset<8>(b) << "\tC " << bitset<8>(c) << "\n";
 			// cout << "H " << bitset<8>(h) << "\tL " << bitset<8>(l) << "\n";
 		// 	cout << "F " << bitset<8>(f) << "\n";
@@ -116,6 +116,11 @@ namespace gbemu {
 			case 0x15:
 				Log::d("DEC D");
 				dec(D, "- - - -");
+				duration = 8;
+				break;
+			case 0x16:
+				Log::d("LD D,d8");
+				ld(D, D8);
 				duration = 8;
 				break;
 			case 0x17:
@@ -219,6 +224,11 @@ namespace gbemu {
 				ld(A, H);
 				duration = 4;
 				break;
+			case 0x7d: 
+				Log::d("LD A,L");
+				ld(A, L);
+				duration = 4;
+				break;
 			case 0x80:
 				Log::d("ADD A,B");
 				add(A, B, "Z 0 H C");
@@ -238,6 +248,11 @@ namespace gbemu {
 				Log::d("XOR A");
 				ixor(A);
 				duration = 4;
+				break;
+			case 0xbe:
+				Log::d("CP (HL)");
+				cpind(HL);
+				duration = 8;
 				break;
 			case 0xc1:
 				Log::d("POP BC");
@@ -315,6 +330,19 @@ namespace gbemu {
 		//printf("CP %4x %4x %4x\n", a, v, a-v);
 		uint8_t compA = a - v;
 		setCpuFlags(CpuFlags("Z 1 H C"), compA, &compA, &v);
+	}
+	
+	void CPU::cpind(Register16 reg) {
+		uint8_t v;
+		switch (reg) {
+			case HL:
+				v = readWord(hl());
+				break;
+			default:
+				Log::e("ERROR: cpind case not impl");
+		}
+		uint8_t comp = a - v;
+		setCpuFlags(CpuFlags("Z 1 H C"), comp, &comp, &v);
 	}
 	
 	uint16_t CPU::readWord(uint16_t addr) {
