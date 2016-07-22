@@ -5,6 +5,7 @@
 
 #include "CPU.hpp"
 #include "Interrupt.hpp"
+#include "Logger.hpp"
 
 namespace gbemu {
 	

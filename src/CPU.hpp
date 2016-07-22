@@ -74,6 +74,7 @@ namespace gbemu {
 		int _ime; // Interrupt Master Enable Flag
 		uint8_t* getRegisterPointer(Register8 reg);
 		uint16_t* getRegisterPointer(Register16 reg);
+		int d_count;
 
 	public:
 		CPU();
@@ -132,6 +133,11 @@ namespace gbemu {
 		void rl(Register8);
 		void pop(Register16);
 		void ret(Condition cond);
+		void cp(DataType dataType);
+		void ldhE0();
+		void ldhF0();
+		void ldind(DataType dataType, Register8 reg);
+		void sub(Register8 reg);
 
 		void preInitRom();
 		void loadRom(shared_ptr<array<byte, CARTRIDGE_SIZE>> buffer);

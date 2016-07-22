@@ -7,7 +7,8 @@ namespace gbemu {
 	enum class LogLevel {
 		DEBUG = 0,
 		INFO = 1,
-		ERROR = 2
+		ERROR = 2,
+		NO_LOG = 3
 	};
 	
 	class Log {
@@ -28,6 +29,7 @@ namespace gbemu {
 			va_end (arg);
 		}
 		static void e(const char *format, ...) {
+			if (currentLogLevel > LogLevel::ERROR) return;
 			va_list arg;
 			va_start (arg, format);
 			vprintf(format, arg);

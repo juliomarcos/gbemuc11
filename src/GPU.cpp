@@ -30,7 +30,7 @@ namespace gbemu {
 	
 	void GPU::setLcdStatus() {
 		auto lcdStatus = cpu.lcdStatus();
-		if (!CHECK_BIT(lcdStatus, LCD_DISPLAY_ENABLE)) {
+		if (!CHECK_BIT(cpu.lcdc(), LCD_DISPLAY_ENABLE)) {
 			scanlineDelayCounter = SCAN_LINE_LENGTH; // it takes 456 cycles to draw one scanline
 			cpu.ly(0);
 			lcdStatus = SET_BIT(lcdStatus, 0); // set mode to SEARCHING_SPRITES
@@ -159,15 +159,15 @@ namespace gbemu {
 	
 	void GPU::draw(int cycles) {
 		
-		//printf("draw()\n");
+		// printf("draw()\n");
 		
 		setLcdStatus();
 		
-		auto lcdStatus = cpu.lcdStatus();
-		if (CHECK_BIT(lcdStatus, LCD_DISPLAY_ENABLE)) {
+		auto lcdc = cpu.lcdc();
+		if (CHECK_BIT(lcdc, LCD_DISPLAY_ENABLE)) {
 			scanlineDelayCounter -= cycles;
 		} else {
-			// printf("lcd not enabled ");
+			// Log::d("lcd not enabled\n");
 			return;
 		}
 		if (scanlineDelayCounter > 0) return; 
@@ -184,7 +184,7 @@ namespace gbemu {
 			printf("V_BLANK Finished\n");
 			cpu.ly(0);
 		} else {
-			drawScanLine(lcdStatus, currentLine);
+			drawScanLine(cpu.lcdStatus(), currentLine);
 		}
 		
 	}

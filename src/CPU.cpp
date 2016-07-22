@@ -24,7 +24,6 @@ namespace gbemu {
 		// bc(0x0013); // TODO: create this register association
 		// de(0x00D8); // TODO: create this register association
 		hl(0x014D);
-		ram[0xFF40] = 0xff;
 				
 		// inserts gibberish on VRAM
 		// TODO: remove this later
@@ -49,10 +48,18 @@ namespace gbemu {
 	}
 
 	void CPU::fetch() {
-		// cout << "B " << bitset<8>(b) << "\tC " << bitset<8>(c) << "\n";
-		// cout << "H " << bitset<8>(h) << "\tL " << bitset<8>(l) << "\n";
-		// cout << "F " << bitset<8>(f) << "\n";
-		//printf("ram[pc] %x %x %x %x\n", ram[pc], ram[pc+1], ram[pc+2], ram[pc+3]);
+		// if (d_count++ >= 1 && d_count < 90000) {
+		// 	gbemu::Log::currentLogLevel = gbemu::LogLevel::DEBUG;
+			cout << "A " << bitset<8>(a) << "\tE " << bitset<8>(e) << "\n";
+			cout << "D " << bitset<8>(d) << "\tE " << bitset<8>(e) << "\n";
+			// cout << "B " << bitset<8>(b) << "\tC " << bitset<8>(c) << "\n";
+			// cout << "H " << bitset<8>(h) << "\tL " << bitset<8>(l) << "\n";
+		// 	cout << "F " << bitset<8>(f) << "\n";
+		// 	printf("ram[pc] %x %x %x %x\n", ram[_pc], ram[_pc+1], ram[_pc+2], ram[_pc+3]);
+		// } else {
+		// 	gbemu::Log::currentLogLevel = gbemu::LogLevel::NO_LOG;
+		// }
+
 		//printf("vram start %02x %02x %02x %02x %02x %02x %02x %02x\n", ram[VRAM_START], ram[VRAM_START+1], ram[VRAM_START+2], ram[VRAM_START+3], ram[VRAM_START+4], ram[VRAM_START+5], ram[VRAM_START+6], ram[VRAM_START+7]);
 		//printf("vram end %02x %02x %02x %02x %02x %02x %02x %02x\n", ram[VRAM_END], ram[VRAM_END-1], ram[VRAM_END-2], ram[VRAM_END-3], ram[VRAM_END-4], ram[VRAM_END-5], ram[VRAM_END-6], ram[VRAM_END-7]);
 		Log::d("%04x ", _pc);
@@ -86,6 +93,11 @@ namespace gbemu {
 				inc(C, "Z 0 H -");
 				duration = 4;
 				break;
+			case 0x0d:
+				Log::d("DEC C");
+				dec(C, "Z 0 H -");
+				duration = 4;
+				break;
 			case 0x0e:
 				Log::d("LD C,d8");
 				ld(C, D8);
@@ -96,10 +108,33 @@ namespace gbemu {
 				ld(DE, D16);
 				duration = 12;
 				break;
+			case 0x13:
+				Log::d("INC DE");
+				inc(DE, "- - - -");
+				duration = 8;
+				break;
+			case 0x15:
+				Log::d("DEC D");
+				dec(D, "- - - -");
+				duration = 8;
+				break;
 			case 0x17:
 				Log::d("RLA");
 				duration = 4;
 				rl(A);
+				break;
+			case 0x18:
+				duration = jr(NOC, R8);
+				break;
+			case 0x1d:
+				Log::d("DEC E");
+				dec(E, "Z 1 H -");
+				duration = 4;
+				break;
+			case 0x1e:
+				Log::d("LD E,d8");
+				ld(E, D8);
+				duration = 8;
 				break;
 			case 0x20:
 				Log::d("JR NZ,r8");
@@ -120,6 +155,20 @@ namespace gbemu {
 				inc(HL, "- - - -");
 				duration = 8;
 				break;
+			case 0x24:
+				Log::d("INC H");
+				inc(H, "Z 0 H -");
+				duration = 4;
+				break;
+			case 0x28:
+				Log::d("JR Z,r8");
+				duration = jr(Z, R8);
+				break;
+			case 0x2e:
+				Log::d("LD L,d8");
+				ld(L,D8);
+				duration = 8;
+				break;
 			case 0x31: 
 				Log::d("LD SP,d16");
 				ld(SP, D16);
@@ -129,6 +178,11 @@ namespace gbemu {
 				Log::d("LD (HL-),A");
 				ldind(HL, SUB, A, NOP);
 				duration = 8;
+				break;
+			case 0x3d:
+				Log::d("DEC A");
+				dec(A, "Z 1 H -");
+				duration = 4;
 				break;
 			case 0x3e:
 				Log::d("LD A,d8");
@@ -140,14 +194,39 @@ namespace gbemu {
 				ld(C, A);
 				duration = 4;
 				break;
+			case 0x57:
+				Log::d("LD D,A");
+				ld(D,A);
+				duration = 8;
+				break;
+			case 0x67:
+				Log::d("LD H,A");
+				ld(H,A);
+				duration = 8;
+				break;
 			case 0x77: 
 				Log::d("LD (HL),A");
 				ldind(HL, NOP, A, NOP);
 				duration = 8;
 				break;
+			case 0x7b: 
+				Log::d("LD A,E");
+				ld(A, E);
+				duration = 4;
+				break;
+			case 0x7c: 
+				Log::d("LD A,H");
+				ld(A, H);
+				duration = 4;
+				break;
 			case 0x80:
 				Log::d("ADD A,B");
 				add(A, B, "Z 0 H C");
+				duration = 4;
+				break;
+			case 0x90:
+				Log::d("SUB B");
+				sub(B);
 				duration = 4;
 				break;
 			case 0x1a:
@@ -181,13 +260,28 @@ namespace gbemu {
 				duration = 24;
 				break;
 			case 0xe0:
-				Log::d("LD C,d8");
-				ld(C, D8);
-				duration = 8;
+				Log::d("LDH (a8),A");
+				ldhE0();
+				duration = 12;
 				break;
 			case 0xe2:
 				Log::d("LD (C),A");
 				ldind(C, A);
+				duration = 8;
+				break;
+			case 0xea:
+				Log::d("LD (a16),A");
+				ldind(A16,A);
+				duration = 16;
+				break;
+			case 0xf0:
+				Log::d("LDH A,(a8)");
+				duration = 12;
+				ldhF0();
+				break;
+			case 0xfe:
+				Log::d("CP d8");
+				cp(D8);
 				duration = 8;
 				break;
 			case 0xcb11:
@@ -207,6 +301,20 @@ namespace gbemu {
 		}
 		// printf(ANSI_COLOR_RESET "\n");
 		Log::d("\n");
+	}
+	
+	void CPU::sub(Register8 reg) {
+		auto regPtr = getRegisterPointer(reg);
+		a -= *regPtr;
+		setCpuFlags(CpuFlags("Z 1 H C"), a, &a, regPtr);
+	}
+	
+	void CPU::cp(DataType dataType) {
+		// there's only D8
+		auto v = readRam(_pc++);
+		//printf("CP %4x %4x %4x\n", a, v, a-v);
+		uint8_t compA = a - v;
+		setCpuFlags(CpuFlags("Z 1 H C"), compA, &compA, &v);
 	}
 	
 	uint16_t CPU::readWord(uint16_t addr) {
@@ -237,12 +345,12 @@ namespace gbemu {
 		uint8_t oldCarryFlagMask = (f >> (8-CARRY_FLAG_POS)) & 1;
 		uint8_t clearCarryFlag = (f & ~(1 << CARRY_FLAG_POS));
 		uint8_t bit7InCarryPosition = (v & (1 << 7)) >> (7-CARRY_FLAG_POS);
-		f = clearCarryFlag | bit7InCarryPosition;
 		v = (v << 1) | oldCarryFlagMask;
 		*regPtr = v;
 		if (v == 0) {
 			f = RESET_BIT(f, ZERO_FLAG_POS);
 		}
+		f = clearCarryFlag | bit7InCarryPosition;
 	}
 	
 	void CPU::push(Register16 reg) {
@@ -302,7 +410,7 @@ namespace gbemu {
 		}
 		if (flags.checkH()) {
 			// TODO: Half Carry
-			Log::i(">> ERROR: Half Carry FLAG not implemented\n");	
+			Log::i(">> ERROR: Half Carry FLAG not implemented");	
 		}
 		if (flags.zeroZ()) {
 			f = RESET_BIT(f, ZERO_FLAG_POS);
@@ -359,23 +467,32 @@ namespace gbemu {
 	}
 	
 	void CPU::inc(Register16 reg, string flags) {
-		uint16_t oldR;
+		uint16_t oldR, v;
 		uint16_t* valuePtr;
 		switch (reg) {
 			case HL:
 				oldR = hl();
-				oldR -= 1;
-				hl(oldR);
-				valuePtr = &oldR;
+				hl(oldR+1);
+				v = hl();
 				break;
+			case DE:
+				oldR = (d << 8) + e;
+				v = oldR + 1;
+				e = (uint8_t) v; // trunc
+				d = (v >> 8);
+				break;
+			default:
+				Log::e(">> ERROR: INC nn not implemented");
+				
 		}
+		valuePtr = &v;
 		setCpuFlags(CpuFlags(flags), oldR, valuePtr, valuePtr);
 	}
 	
 	void CPU::inc(Register8 reg, string flags) {
 		uint8_t* regPtr = getRegisterPointer(reg);
 		auto oldR = *regPtr;
-		*regPtr = (*regPtr) + 1;
+		*regPtr = oldR + 1;
 		setCpuFlags(CpuFlags(flags), oldR, regPtr, regPtr);
 	}
 	
@@ -575,6 +692,19 @@ namespace gbemu {
 				break;
 		}
 	}
+	
+	void CPU::ldhE0() {
+		int16_t addr = readRam(_pc++) + 0xff00;
+		// printf("ldhE0 addr %4x\n");
+		writeRam(addr, a);
+		// cout << " ram[0xff40] " << bitset<8>(ram[0xff40]) << endl;
+	}
+
+	void CPU::ldhF0() {
+		uint8_t n = readRam(_pc++);
+		int16_t addr = n + 0xff00;
+		a = readRam(addr);
+	}
 
 	void CPU::ld(Register8 reg, DataType dataType) {
 		uint8_t* regPtr = getRegisterPointer(reg);
@@ -615,12 +745,23 @@ namespace gbemu {
 			writeRam(vhl, *getRegisterPointer(regB));
 			switch (opA) {
 				case SUB: vhl--; break;
+				case ADD: vhl++; break;
 			}
 			hl(vhl);
 		} else {
 			Log::e(">> ERROR: ldind reg16 branch not implemented");
 			// auto *regAptr = getRegisterPointer(regA);
 			// auto *regBptr = getRegisterPointer(regB);
+		}
+	}
+	
+	void CPU::ldind(DataType dataType, Register8 reg) {
+		if (dataType == A16 && reg == A) {
+			int16_t addr = (int16_t) readWord(_pc);
+			_pc+=2;
+			writeRam(addr, a);	
+		} else {
+			Log::e("CPU::ldind(DataType dataType, Register8 reg) branch not implemented\n");
 		}
 	}
 	
@@ -675,13 +816,19 @@ namespace gbemu {
 				} else {
 					return 8;
 				}
-			case NZ:
+			case NZ: //F 11110000
 				if (!CHECK_BIT(f, ZERO_FLAG_POS)) {
 					_pc += data;	
 					return 12;
 				} else {
 					return 8;
 				}
+			case NOC:
+				_pc += data;
+				return 12;
+			default: 
+				Log::e("ERROR: CPU::jr -> Condition case not treated");
+				break;
 		}
 	}
 	

@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
 	//cpu.loadRom(gbemu::getByteBufferFromPath(romPath)); // TODO: usar isto depois q o bootstrap rodar
 	cpu.loadRom(gbemu::getByteBufferFromPath("./build/bootstrap.bin"));
 
-	auto cycles = 150;
+	auto cycles = 700;
 	//auto cycles = 3 + 8191*3 + 9;
 	// for(size_t i = 0; i < cycles; ++i)
 	// {
@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 		
-		// TOOD: ETST
+		// TODO: remover this artificial for tests only limitation
 		cycles -= cyclesThisInstruction;
 		if (cycles <= 0) break;
 	}
