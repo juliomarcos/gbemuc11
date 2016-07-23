@@ -569,11 +569,11 @@ namespace gbemu {
 	}
 	
 	uint8_t CPU::windowX() {
-		return ram[0xFF4A] - 7;
+		return ram[0xFF4B] - 7;
 	}
 	
 	uint8_t CPU::windowY() {
-		return ram[0xFF4B];
+		return ram[0xFF4A];
 	}
 	
 	uint8_t CPU::lcdc() {

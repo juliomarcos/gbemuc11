@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
 	//cpu.loadRom(gbemu::getByteBufferFromPath(romPath)); // TODO: usar isto depois q o bootstrap rodar
 	cpu.loadRom(gbemu::getByteBufferFromPath("./build/bootstrap.bin"));
 
-	auto cycles = 800;
+	//auto cycles = 800;
 	//auto cycles = 3 + 8191*3 + 9;
 	// for(size_t i = 0; i < cycles; ++i)
 	// {

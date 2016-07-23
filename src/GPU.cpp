@@ -7,6 +7,7 @@ namespace gbemu {
 	}
 	
 	void GPU::reallocatePixelsBuffer() {
+		// printf ("reallocatePixelsBuffer width %d height %d\n", width, height);
 		if (pixels != NULL) {
 			delete[] pixels;
 		}
@@ -14,6 +15,8 @@ namespace gbemu {
 	}
 	
 	void GPU::writePixel(int color, int j) {
+		// printf("j: %d\n", j);
+		j *= 3;
 		switch (color) {
 			case 0: pixels[j++] = 242; pixels[j++] = 242; pixels[j++] = 242; break;
 			case 1: pixels[j++] = 182; pixels[j++] = 182; pixels[j++] = 182; break;
@@ -78,14 +81,75 @@ namespace gbemu {
 		cpu.lcdStatus(lcdStatus);
 	}
 	
+	uint8_t GPU::getColorFromPalette(int paletteAddr, int colorCode) {
+		uint8_t palette = cpu.readRam(paletteAddr);
+		// printf("palette addr %04x", paletteAddr);
+		// cout << " palette " << bitset<8>(palette) << endl;
+		return (palette & ((1 << ((colorCode+1)*2))-1)) >> (colorCode*2);
+	};
+	
 	void GPU::drawBackground(uint8_t lcdc) {
 		auto scrollX = cpu.scrollX();
 		auto scrollY = cpu.scrollY();
-		int bgTileMapOffset;
-		if (!CHECK_BIT(lcdc, BG_TILE_MAP_DISPLAY_SELECT)) {
-			bgTileMapOffset = TILE_BG_MAP_1; // 0~255
+		auto scanline = cpu.ly();
+		if (scanline > 143) return;
+		
+		int tilePatternTable;
+		bool sign;
+		if (CHECK_BIT(lcdc, BG_AND_WINDOW_TILE_DATA_SELECT)) {
+			tilePatternTable = TILE_PATTERNS_TABLE_1; // 0~255
+			sign = false;
 		} else {
-			bgTileMapOffset = TILE_BG_MAP_2; // -128~127
+			tilePatternTable = TILE_PATTERNS_TABLE_2; // -128~127
+			sign = true;
+		}
+		int backgroundMap; // this resembles sprites
+		if (!CHECK_BIT(lcdc, BG_TILE_MAP_DISPLAY_SELECT)) {
+			backgroundMap = TILE_BG_MAP_1;
+		} else {
+			backgroundMap = TILE_BG_MAP_2;
+		}
+
+		auto yPos = scrollY+scanline;
+		auto tileRow = ((uint8_t)(yPos/8)*32); // bgs are only repeated
+		
+		for (int i = 0; i < 160; i++) {
+			auto xPos = i + scrollX;
+			auto tileCol = xPos / 8;
+			uint16_t tilePatternAddr = backgroundMap + tileRow + tileCol;
+			int tilePatternNum;
+			if (!sign) {
+				tilePatternNum = (uint8_t) cpu.readRam(tilePatternAddr);
+			} else {
+				tilePatternNum = (int8_t) cpu.readRam(tilePatternAddr);
+			}
+			// now that we know which tile we want, we need to get it!
+			uint8_t tileDataAddr = tilePatternTable;
+			if (!sign) {
+				tileDataAddr += tilePatternNum * 16;
+			} else {
+				// 128 = (1 + (0x97FF-0x8800) / 2) / 16
+				tileDataAddr += (tilePatternNum + 128) * 16; // each tile occupies 16 bytes (8x8x2/8) w*h*(bits-to-represent-4-colors)/byte-size
+			}
+			
+			auto whichTileLine = (yPos % 8) * 2; // each line in a tile takes 2 bytes
+			auto tileLinePart1 = cpu.readRam(tileDataAddr + whichTileLine);
+			auto tileLinePart2 = cpu.readRam(tileDataAddr + whichTileLine + 1);
+			
+			auto pixelCode = (CHECK_BIT(tileLinePart1, 7-(xPos%8)) ? 1 : 0) + (CHECK_BIT(tileLinePart2, 7-(xPos%8)) ? 2 : 0);
+			auto pixelColor = getColorFromPalette(BGP, pixelCode);
+			
+			// TODO: xFlip
+
+			auto x = i;
+			auto y = scanline;
+			if (x < 0 || x > 159 || y < 0 || y > 143) {
+				Log::e("ERROR: drawBackground. one is true: x < 0 || x > 159 || y < 0 || y > 143\n");
+				Log::e("x %d y %d\n", x, y);
+				continue; // ERROR, don't crash the emulator because of that
+			}
+			// printf ("x %d y %d color %d\n", x, y, pixelColor);
+			writePixel(pixelColor, y*LINE_WIDTH + x);
 		}
 	}
 	
@@ -96,28 +160,30 @@ namespace gbemu {
 	}
 	
 	void GPU::drawSprites(uint8_t lcdc) {
+		
+		// printf("drawSprites\n");
+		
 		auto spriteSizeIs8x8 = true;
 		if (CHECK_BIT(lcdc, 2)) {
 			spriteSizeIs8x8 = false; // it's 8x16
 		}
 		
 		int scanline = cpu.ly();
-		
-		auto getColorFromPalette = [&](int paletteAddr, int colorCode) {
-			uint8_t palette = cpu.readRam(paletteAddr);
-			auto color = palette >> (6-colorCode*2);
-			return color << 6;
-		};
+		// printf("scanline %d\n", scanline);
 		
 		for(size_t i = 0; i < 40; ++i)
 		{
+			// printf("drawing sprite nth:%d\n", i);
+			
 			uint8_t spriteIndex = i * 4;
 			auto yPos = cpu.readRam(OAM + spriteIndex) - 16;
 			auto xPos = cpu.readRam(OAM + spriteIndex + 1) - 8;
 			uint8_t patternIndex = cpu.readRam(OAM + spriteIndex + 2); 
-			if (!spriteSizeIs8x8) {
-				patternIndex = patternIndex >> 1;
-			}
+			// TODO: Check from wwhere the following 3 lines cames
+			// if (!spriteSizeIs8x8) {
+// 				patternIndex = patternIndex >> 1;
+// 			}
+			// printf ("sprite %d pattern %d x %d y %d\n", i, patternIndex, xPos, yPos);
 			uint8_t attributes = cpu.readRam(OAM + spriteIndex + 3);
 			auto paletteAddr = CHECK_BIT(attributes, 4) ? OBP1 : OBP0;
 			auto xFlip = CHECK_BIT(attributes, 5);
@@ -126,12 +192,12 @@ namespace gbemu {
 			int ySize = spriteSizeIs8x8 ? 8 : 16;
 			
 			// only draw sprites portions that belong to this scanline
-			if (scanline >= yPos && (yPos+ySize)) {
+			if ((scanline >= yPos) && (yPos+ySize)) {
 				auto spriteLine = scanline - yPos;
 				
 				// TODO: yFlip
 				
-				auto tileAddr = SPRITE_PATTERNS_TABLE + (patternIndex * 16) + spriteLine; // each tile takes 16 bytes
+				auto tileAddr = TILE_PATTERNS_TABLE_1 + (patternIndex * 16) + spriteLine*2; // each tile takes 16 bytes
 				auto tileLinePart1 = cpu.readRam(tileAddr);
 				auto tileLinePart2 = cpu.readRam(tileAddr + 1);
 
@@ -179,10 +245,8 @@ namespace gbemu {
 			Log::d("V_BLANK Finished\n");
 			cpu.ly(0);
 		} else {
-			drawScanLine(cpu.lcdStatus(), currentLine);
+			drawScanLine(cpu.lcdc(), currentLine);
 		}
-		
-		glDrawPixels(width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels);
 		
 	}
 	
@@ -197,8 +261,9 @@ namespace gbemu {
 			reallocatePixelsBuffer();
 		}
 		
-        glViewport(0, 0, width, height);
+        //glViewport(0, 0, width, height);
         glClear(GL_COLOR_BUFFER_BIT);
+		glDrawPixels(width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels);
 
 		if (CHECK_BIT(lcdStatus, WINDOW_DISPLAY_ENABLE)) {
 			drawWindow(lcdStatus);
