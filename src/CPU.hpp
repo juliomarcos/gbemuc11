@@ -85,6 +85,7 @@ namespace gbemu {
 		int emulateNextInstruction();
 		void fetch();
 		void decodeAndExecute();
+		void powerUpSequence();
 		void debugger();
 		void push(uint16_t word);
 		uint16_t pop();
@@ -97,6 +98,9 @@ namespace gbemu {
 		void pc(uint16_t pc);
 		uint16_t hl();
 		void hl(uint16_t);
+		void af(uint16_t);
+		void bc(uint16_t);
+		void de(uint16_t);
 		uint8_t lyc();
 		uint8_t ly();
 		void ly(uint8_t scanline);
@@ -141,7 +145,7 @@ namespace gbemu {
 		void sub(Register8 reg);
 
 		void preInitRom();
-		void loadRom(shared_ptr<array<byte, CARTRIDGE_SIZE>> buffer);
+		void loadRom(vector<char> buffer, int romSize);
 	
 	private:
 		uint8_t a, b, c, d, e, f, h, l;

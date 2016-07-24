@@ -39,12 +39,16 @@ namespace gbemu {
 		return window;
 	}
 
-	shared_ptr<array<byte, CARTRIDGE_SIZE>> getByteBufferFromPath(string path) {
-		ifstream romFile;
-		romFile.open(path, ios::binary);
-		auto bufferPtr = make_shared<array<byte, CARTRIDGE_SIZE>>();
-		romFile.read(reinterpret_cast<char*>((*bufferPtr).data()), CARTRIDGE_SIZE);
-		return bufferPtr;
+	vector<char> getByteBufferFromPath(string path) {
+		ifstream file(path.c_str(), ios::in|ios::binary|ios::ate);
+		vector<char> buffer;
+		int length = file.tellg();
+		if (length) {
+			file.seekg(0, ios::beg);
+			buffer.resize((size_t)length);
+			file.read(&buffer.front(), (size_t)length);	
+		}
+		return buffer;
 	}
 
 }
@@ -53,8 +57,7 @@ void handler() {
     void *trace_elems[20];
     int trace_elem_count(backtrace( trace_elems, 20 ));
     char **stack_syms(backtrace_symbols( trace_elems, trace_elem_count ));
-    for (int i = 0 ; i < trace_elem_count ; ++i)
-    {
+    for (int i = 0 ; i < trace_elem_count ; ++i) {
         std::cout << stack_syms[i] << "\n";
     }
     free(stack_syms);
@@ -80,10 +83,11 @@ int main(int argc, char *argv[]) {
 	auto interrupt = gbemu::Interrupt(cpu);
 	auto gpu = gbemu::GPU::GPU(window, cpu, interrupt);
 
-	//cpu.loadRom(gbemu::getByteBufferFromPath(romPath)); // TODO: usar isto depois q o bootstrap rodar
-	cpu.loadRom(gbemu::getByteBufferFromPath("./build/bootstrap.bin"));
+	cpu.loadRom(gbemu::getByteBufferFromPath(romPath), 0x8000); // TODO: usar isto depois q o bootstrap rodar
+	cpu.loadRom(gbemu::getByteBufferFromPath("./build/bootstrap.bin"), 0x100);
+	//cpu.powerUpSequence();
 
-	//auto cycles = 800;
+	auto cycles = 1;
 	//auto cycles = 3 + 8191*3 + 9;
 	// for(size_t i = 0; i < cycles; ++i)
 	// {
@@ -107,8 +111,11 @@ int main(int argc, char *argv[]) {
 		glfwPollEvents();
 		
 		// TODO: remover this artificial for tests only limitation
-		// cycles -= cyclesThisInstruction;
+		cycles -= cyclesThisInstruction;
 		// if (cycles <= 0) break;
+		// if (cycles > 40) {
+		// 	gbemu::Log::currentLogLevel = gbemu::LogLevel::DEBUG;
+		// }
 	}
 
 	glfwTerminate();

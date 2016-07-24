@@ -16,7 +16,7 @@ namespace gbemu {
 	
 	void GPU::writePixel(int color, int j) {
 		// printf("j: %d\n", j);
-		j *= 3;
+		j = -3 + 160*144*3 - j*3;
 		switch (color) {
 			case 0: pixels[j++] = 242; pixels[j++] = 242; pixels[j++] = 242; break;
 			case 1: pixels[j++] = 182; pixels[j++] = 182; pixels[j++] = 182; break;
@@ -52,7 +52,7 @@ namespace gbemu {
 				newMode = SEARCHING_SPRITES;
 				lcdStatus = RESET_BIT(lcdStatus, 0);
 				lcdStatus = SET_BIT(lcdStatus, 1);
-				requiresInterruption = CHECK_BIT(lcdStatus, 5);
+				requiresInterruption = CHECK_BIT(lcdStatus, 4);
 			} else if (scanlineDelayCounter >= MODE_3_BOUND) {
 				newMode = TRANSFERING_DATA_LCD;
 				lcdStatus = SET_BIT(lcdStatus, 0);
@@ -111,30 +111,25 @@ namespace gbemu {
 		}
 
 		auto yPos = scrollY+scanline;
-		auto tileRow = ((uint8_t)(yPos/8)*32); // bgs are only repeated
+		auto tileRow = (yPos/8)*32; 
 		
 		for (int i = 0; i < 160; i++) {
-			auto xPos = i + scrollX;
-			auto tileCol = xPos / 8;
+			uint8_t xPos = i + scrollX;
+			uint16_t tileCol = xPos / 8;
 			uint16_t tilePatternAddr = backgroundMap + tileRow + tileCol;
-			int tilePatternNum;
+			uint16_t tileDataAddr;
 			if (!sign) {
-				tilePatternNum = (uint8_t) cpu.readRam(tilePatternAddr);
+				uint8_t tilePatternNum = cpu.readRam(tilePatternAddr);
+				tileDataAddr = tilePatternNum * 16;
 			} else {
-				tilePatternNum = (int8_t) cpu.readRam(tilePatternAddr);
+				int8_t tilePatternNum = (int8_t) cpu.readRam(tilePatternAddr);
+				tileDataAddr = (tilePatternNum + 128) * 16;
 			}
-			// now that we know which tile we want, we need to get it!
-			uint8_t tileDataAddr = tilePatternTable;
-			if (!sign) {
-				tileDataAddr += tilePatternNum * 16;
-			} else {
-				// 128 = (1 + (0x97FF-0x8800) / 2) / 16
-				tileDataAddr += (tilePatternNum + 128) * 16; // each tile occupies 16 bytes (8x8x2/8) w*h*(bits-to-represent-4-colors)/byte-size
-			}
-			
-			auto whichTileLine = (yPos % 8) * 2; // each line in a tile takes 2 bytes
-			auto tileLinePart1 = cpu.readRam(tileDataAddr + whichTileLine);
-			auto tileLinePart2 = cpu.readRam(tileDataAddr + whichTileLine + 1);
+			tileDataAddr*=2;
+							
+			uint8_t whichTileLine = (yPos % 8) * 2; // each line in a tile takes 2 bytes
+			uint8_t tileLinePart1 = cpu.readRam(tileDataAddr + whichTileLine);
+			uint8_t tileLinePart2 = cpu.readRam(tileDataAddr + whichTileLine + 1);
 			
 			auto pixelCode = (CHECK_BIT(tileLinePart1, 7-(xPos%8)) ? 1 : 0) + (CHECK_BIT(tileLinePart2, 7-(xPos%8)) ? 2 : 0);
 			auto pixelColor = getColorFromPalette(BGP, pixelCode);
@@ -150,6 +145,11 @@ namespace gbemu {
 			}
 			// printf ("x %d y %d color %d\n", x, y, pixelColor);
 			writePixel(pixelColor, y*LINE_WIDTH + x);
+			// if (scanline <= 100) {
+			// 	writePixel(0, y*LINE_WIDTH + x);
+			// } else {
+			// 	writePixel(3, y*LINE_WIDTH + x);
+			// }
 		}
 	}
 	
@@ -211,7 +211,7 @@ namespace gbemu {
 					if (pixelColor == 0) continue; // skip white for sprites
 					
 					auto x = xPos+i;
-					auto y = scanline;
+					auto y = scanline;					
 					writePixel(pixelColor, y*LINE_WIDTH + x);
 				}
 			}
@@ -233,11 +233,7 @@ namespace gbemu {
 		}
 		if (scanlineDelayCounter > 0) return; 
 		
-		auto currentLine = cpu.ly();
-		cpu.ly(currentLine + 1);
-		
-		cpu.lcdStatus(SEARCHING_SPRITES);
-		
+		auto currentLine = cpu.ly();		
 		if (currentLine == 144) {
 			Log::d("V_BLANK Started\n");
 			interrupt.request(Interrupt::V_BLANK);
@@ -247,10 +243,11 @@ namespace gbemu {
 		} else {
 			drawScanLine(cpu.lcdc(), currentLine);
 		}
+		cpu.ly(currentLine + 1);
 		
 	}
 	
-	void GPU::drawScanLine(uint8_t lcdStatus, uint8_t currentLine) {
+	void GPU::drawScanLine(uint8_t lcdc, uint8_t currentLine) {
 		
 		// printf("drawScanLine lcdc %x currentLine %d\n", lcdc, currentLine);
 		
@@ -261,20 +258,18 @@ namespace gbemu {
 			reallocatePixelsBuffer();
 		}
 		
-        //glViewport(0, 0, width, height);
-        glClear(GL_COLOR_BUFFER_BIT);
 		glDrawPixels(width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels);
 
-		if (CHECK_BIT(lcdStatus, WINDOW_DISPLAY_ENABLE)) {
-			drawWindow(lcdStatus);
+		if (CHECK_BIT(lcdc, WINDOW_DISPLAY_ENABLE)) {
+			drawWindow(lcdc);
 		}
 		
-		if (CHECK_BIT(lcdStatus, BG_DISPLAY)) {
-			drawBackground(lcdStatus);
+		if (CHECK_BIT(lcdc, BG_DISPLAY)) {
+			drawBackground(lcdc);
 		}
 		
-		if (CHECK_BIT(lcdStatus, OBJ_SPRITE_DISPLAY_ENABLE)) {
-			drawSprites(lcdStatus);
+		if (CHECK_BIT(lcdc, OBJ_SPRITE_DISPLAY_ENABLE)) {
+			drawSprites(lcdc);
 		}
 		
 	}

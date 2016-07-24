@@ -19,20 +19,6 @@ namespace gbemu {
 	CPU::CPU()
 	{
 		_pc = 0;
-		_sp = 0xFFFE;
-		// af(0x01B0); // TODO: create this register association
-		// bc(0x0013); // TODO: create this register association
-		// de(0x00D8); // TODO: create this register association
-		hl(0x014D);
-				
-		// inserts gibberish on VRAM
-		// TODO: remove this later
-		std::default_random_engine generator;
-		std::uniform_int_distribution<int> distribution(0, 0xFF);
-		for(size_t i = 0x9FFF; i >= VRAM_START; i--)
-		{
-			ram[i] = distribution(generator);
-		}
 	}
 
 	CPU::~CPU()
@@ -50,11 +36,19 @@ namespace gbemu {
 	void CPU::fetch() {
 		// if (d_count++ >= 1 && d_count < 90000) {
 		// 	gbemu::Log::currentLogLevel = gbemu::LogLevel::DEBUG;
-			// cout << "A " << bitset<8>(a) << "\tE " << bitset<8>(e) << "\n";
-			// cout << "D " << bitset<8>(d) << "\tE " << bitset<8>(e) << "\n";
-			// cout << "B " << bitset<8>(b) << "\tC " << bitset<8>(c) << "\n";
-			// cout << "H " << bitset<8>(h) << "\tL " << bitset<8>(l) << "\n";
-		// 	cout << "F " << bitset<8>(f) << "\n";
+		if (Log::currentLogLevel == LogLevel::DEBUG) {
+			cout << "A " << bitset<8>(a) << "\tB " << bitset<8>(b) << "\n";
+			cout << "C " << bitset<8>(c) << "\tD " << bitset<8>(d) << "\n";
+			cout << "E " << bitset<8>(e) << "\tF " << bitset<8>(f) << "\n";
+			cout << "H " << bitset<8>(h) << "\tL " << bitset<8>(l) << "\n";
+			cout << "SP " << bitset<16>(_sp) << endl;
+		}
+		// if (_pc == 0x1D) {
+		// 	gbemu::Log::currentLogLevel = gbemu::LogLevel::DEBUG;
+		// }
+		// if (_pc== 0x40) {
+		// 	gbemu::Log::currentLogLevel = gbemu::LogLevel::ERROR;
+		// }
 		// 	printf("ram[pc] %x %x %x %x\n", ram[_pc], ram[_pc+1], ram[_pc+2], ram[_pc+3]);
 		// } else {
 		// 	gbemu::Log::currentLogLevel = gbemu::LogLevel::NO_LOG;
@@ -62,13 +56,53 @@ namespace gbemu {
 
 		//printf("vram start %02x %02x %02x %02x %02x %02x %02x %02x\n", ram[VRAM_START], ram[VRAM_START+1], ram[VRAM_START+2], ram[VRAM_START+3], ram[VRAM_START+4], ram[VRAM_START+5], ram[VRAM_START+6], ram[VRAM_START+7]);
 		//printf("vram end %02x %02x %02x %02x %02x %02x %02x %02x\n", ram[VRAM_END], ram[VRAM_END-1], ram[VRAM_END-2], ram[VRAM_END-3], ram[VRAM_END-4], ram[VRAM_END-5], ram[VRAM_END-6], ram[VRAM_END-7]);
-		Log::d("%04x ", _pc);
+		Log::d(">> %04x ", _pc);
 		opcode = ram[_pc++];
 		if (opcode == 0xCB) {
 			opcode = (opcode << 8) + ram[_pc++];
 		}
 		// printf("fetched: " ANSI_COLOR_GREEN "%x. " ANSI_COLOR_YELLOW , opcode);
 		// printf("fetched: %x. ", opcode);
+	}
+	
+	void CPU::powerUpSequence() {
+		_pc = 0x100;
+		_sp = 0xFFFE;
+		af(0x01B0); // TODO: create this register association
+		bc(0x0013); // TODO: create this register association
+		de(0x00D8); // TODO: create this register association
+		hl(0x014D);
+		rom[0xFF05] = 0x00; 
+		rom[0xFF06] = 0x00; 
+		rom[0xFF07] = 0x00; 
+		rom[0xFF10] = 0x80; 
+		rom[0xFF11] = 0xBF; 
+		rom[0xFF12] = 0xF3; 
+		rom[0xFF14] = 0xBF; 
+		rom[0xFF16] = 0x3F; 
+		rom[0xFF17] = 0x00; 
+		rom[0xFF19] = 0xBF; 
+		rom[0xFF1A] = 0x7F; 
+		rom[0xFF1B] = 0xFF; 
+		rom[0xFF1C] = 0x9F; 
+		rom[0xFF1E] = 0xBF; 
+		rom[0xFF20] = 0xFF; 
+		rom[0xFF21] = 0x00; 
+		rom[0xFF22] = 0x00; 
+		rom[0xFF23] = 0xBF; 
+		rom[0xFF24] = 0x77; 
+		rom[0xFF25] = 0xF3;
+		rom[0xFF26] = 0xF1; 
+		rom[0xFF40] = 0x91; 
+		rom[0xFF42] = 0x00; 
+		rom[0xFF43] = 0x00; 
+		rom[0xFF45] = 0x00; 
+		rom[0xFF47] = 0xFC; 
+		rom[0xFF48] = 0xFF; 
+		rom[0xFF49] = 0xFF; 
+		rom[0xFF4A] = 0x00; 
+		rom[0xFF4B] = 0x00; 
+		rom[0xFFFF] = 0x00; 
 	}
 	
 	void CPU::decodeAndExecute() {
@@ -129,6 +163,7 @@ namespace gbemu {
 				rl(A);
 				break;
 			case 0x18:
+				Log::d("JR d8");
 				duration = jr(NOC, R8);
 				break;
 			case 0x1d:
@@ -548,6 +583,22 @@ namespace gbemu {
 		h = vhl >> 8;
 		l = (uint8_t) vhl;
 	}
+	
+	void CPU::af(uint16_t afl) {
+		a = afl >> 8;
+		f = (uint8_t) afl;
+	}
+	
+	void CPU::bc(uint16_t v) {
+		b = v >> 8;
+		c = (uint8_t) v;
+	}
+	
+	void CPU::de(uint16_t v) {
+		d = v >> 8;
+		e = (uint8_t) v;
+	}
+	
 	uint8_t CPU::lyc() {
 		return ram[LYC];
 	}
@@ -668,56 +719,25 @@ namespace gbemu {
 		}
 	}
 
-	void CPU::preInitRom() {
-		rom[0xFF05] = 0x00; 
-		rom[0xFF06] = 0x00; 
-		rom[0xFF07] = 0x00; 
-		rom[0xFF10] = 0x80; 
-		rom[0xFF11] = 0xBF; 
-		rom[0xFF12] = 0xF3; 
-		rom[0xFF14] = 0xBF; 
-		rom[0xFF16] = 0x3F; 
-		rom[0xFF17] = 0x00; 
-		rom[0xFF19] = 0xBF; 
-		rom[0xFF1A] = 0x7F; 
-		rom[0xFF1B] = 0xFF; 
-		rom[0xFF1C] = 0x9F; 
-		rom[0xFF1E] = 0xBF; 
-		rom[0xFF20] = 0xFF; 
-		rom[0xFF21] = 0x00; 
-		rom[0xFF22] = 0x00; 
-		rom[0xFF23] = 0xBF; 
-		rom[0xFF24] = 0x77; 
-		rom[0xFF25] = 0xF3;
-		rom[0xFF26] = 0xF1; 
-		rom[0xFF40] = 0x91; 
-		rom[0xFF42] = 0x00; 
-		rom[0xFF43] = 0x00; 
-		rom[0xFF45] = 0x00; 
-		rom[0xFF47] = 0xFC; 
-		rom[0xFF48] = 0xFF; 
-		rom[0xFF49] = 0xFF; 
-		rom[0xFF4A] = 0x00; 
-		rom[0xFF4B] = 0x00; 
-		rom[0xFFFF] = 0x00; 
-	}
-
-	void CPU::loadRom(shared_ptr<array<byte, CARTRIDGE_SIZE>> bufferPtr)
+	void CPU::loadRom(vector<char> rom, int romSize)
 	{
-		rom = *bufferPtr;
-		preInitRom();
-		for(size_t i = 0; i < 0x3FF; ++i) // 0x0000-0x3FFF: Permanently-mapped ROM bank.
-		{
-			ram[i] = rom[i];
+		//rom = *bufferPtr;
+		//printf ("ROM SIZE: %d\n", rom.size());
+		for(size_t i = 0; i < romSize; ++i) {
+			ram[i] = (byte) rom[i];
 		}
 	}
 	
 	void CPU::ixor(Register8 reg) {
+		int v;
 		switch (reg) {
 			case A:
 				a = a ^ a;
-				f = (a == 0) ? (ZERO_FLAG | f) : f;
+				v = a;
 				break;
+		}
+		if (v == 0) {
+			f = (1 << 7);
 		}
 	}
 	
@@ -737,6 +757,7 @@ namespace gbemu {
 	void CPU::ld(Register8 reg, DataType dataType) {
 		uint8_t* regPtr = getRegisterPointer(reg);
 		*regPtr = ram[_pc++];
+		Log::d(" %s", bitset<8>(ram[_pc-1]).to_string().c_str());
 	}
 	
 	void CPU::ld(Register8 reg1, Register8 reg2) {
@@ -746,20 +767,21 @@ namespace gbemu {
 	}
 
 	void CPU::ld(Register16 reg, DataType dataType) {
+		Log::d(" %s %s", bitset<8>(ram[_pc]).to_string().c_str(), bitset<8>(ram[_pc+1]).to_string().c_str());
 		if (reg == HL) { // HL is not a register, it's a pair of them
 			l = ram[_pc++];
 			h = ram[_pc++];
 		}  else if (reg == SP) {
-			auto s = ram[_pc++];
 			auto p = ram[_pc++];
+			auto s = ram[_pc++];
 			_sp = (s << 8) + p;
 		} else if (reg == DE) { // DE is not a register, it's a pair of them
-			d = ram[_pc++];
 			e = ram[_pc++];
+			d = ram[_pc++];
 		} else { 
 			uint16_t* regPtr = getRegisterPointer(reg);
 			if (dataType == D16) {
-				*regPtr = (ram[_pc]) + (ram[_pc+1] << 8); // little endian
+				*regPtr = readWord(_pc); // little endian
 				_pc += 2;
 			} else {
 				*regPtr = ram[_pc++];

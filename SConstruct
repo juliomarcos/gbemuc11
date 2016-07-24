@@ -16,4 +16,4 @@ sources = [
 ]
 
 main = env.Program(target='./build/gbemuc11', source=sources)
-test = env.Command(target="blah", source="./build/gbemuc11", action="./build/gbemuc11 Tetris.gb")
+test = env.Command(target="blah", source="./build/gbemuc11", action="./build/gbemuc11 ./build/Tetris.gb")
