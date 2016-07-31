@@ -16,7 +16,8 @@ namespace gbemu {
 	
 	void GPU::writePixel(int color, int j) {
 		// printf("j: %d\n", j);
-		j = -3 + 160*144*3 - j*3;
+		//j = -3 + 160*144*3 - j*3;
+		j *= 3;
 		switch (color) {
 			case 0: pixels[j++] = 242; pixels[j++] = 242; pixels[j++] = 242; break;
 			case 1: pixels[j++] = 182; pixels[j++] = 182; pixels[j++] = 182; break;
@@ -247,6 +248,34 @@ namespace gbemu {
 		
 	}
 	
+	void GPU::initGraphics() {
+		GLuint tex;
+		glGenTextures(1, &tex); 
+		glBindTexture(GL_TEXTURE_2D, tex);
+	}
+	
+	void GPU::drawPixels() {
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+		
+		glMatrixMode(GL_PROJECTION);
+		glLoadIdentity();
+		glOrtho(0, width, height, 0, -1, 1);
+		
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
+
+		glEnable(GL_TEXTURE_2D);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		
+		glBegin(GL_QUADS);
+		    glTexCoord2i(0, 0); glVertex2i(0.0f, 0.0f);
+		    glTexCoord2i(0, 1); glVertex2i(0.0f, (float)height);
+		    glTexCoord2i(1, 1); glVertex2i((float)width, (float)height);
+		    glTexCoord2i(1, 0); glVertex2i((float)width, 0);
+		glEnd();
+	}
+	
 	void GPU::drawScanLine(uint8_t lcdc, uint8_t currentLine) {
 		
 		// printf("drawScanLine lcdc %x currentLine %d\n", lcdc, currentLine);
@@ -256,10 +285,11 @@ namespace gbemu {
 			prevWidth = width;
 			prevHeight = height;
 			reallocatePixelsBuffer();
+			glViewport(0.0f, 0.0f, width, height);
 		}
 		
-		glDrawPixels(width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels);
-
+		//glDrawPixels(width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+		
 		if (CHECK_BIT(lcdc, WINDOW_DISPLAY_ENABLE)) {
 			drawWindow(lcdc);
 		}

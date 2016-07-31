@@ -82,6 +82,7 @@ int main(int argc, char *argv[]) {
 	auto cpu = gbemu::CPU::CPU();
 	auto interrupt = gbemu::Interrupt(cpu);
 	auto gpu = gbemu::GPU::GPU(window, cpu, interrupt);
+	gpu.initGraphics();
 
 	cpu.loadRom(gbemu::getByteBufferFromPath(romPath), 0x8000); // TODO: usar isto depois q o bootstrap rodar
 	cpu.loadRom(gbemu::getByteBufferFromPath("./build/bootstrap.bin"), 0x100);
@@ -107,6 +108,7 @@ int main(int argc, char *argv[]) {
 			interrupt.run();
 			cyclesThisFrame += cyclesThisInstruction;
 		}
+		gpu.drawPixels();
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 		

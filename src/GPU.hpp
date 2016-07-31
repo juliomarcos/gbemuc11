@@ -64,6 +64,8 @@ namespace gbemu {
 		void drawSprites(uint8_t lcdc);
 		void reallocatePixelsBuffer();
 		void writePixel(int,int);
+		void initGraphics();
+		void drawPixels();
 		
 	};
 }
