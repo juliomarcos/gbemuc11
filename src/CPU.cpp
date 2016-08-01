@@ -43,10 +43,10 @@ namespace gbemu {
 			cout << "H " << bitset<8>(h) << "\tL " << bitset<8>(l) << "\n";
 			cout << "SP " << bitset<16>(_sp) << endl;
 		}
-		// if (_pc == 0x1D) {
+		// if (_pc == 0xE0) {
 		// 	gbemu::Log::currentLogLevel = gbemu::LogLevel::DEBUG;
 		// }
-		// if (_pc== 0x40) {
+		// if (_pc== 0xFC) {
 		// 	gbemu::Log::currentLogLevel = gbemu::LogLevel::ERROR;
 		// }
 		// 	printf("ram[pc] %x %x %x %x\n", ram[_pc], ram[_pc+1], ram[_pc+2], ram[_pc+3]);
@@ -249,6 +249,11 @@ namespace gbemu {
 				ldind(HL, NOP, A, NOP);
 				duration = 8;
 				break;
+			case 0x78: 
+				Log::d("LD A,B");
+				ld(A,B);
+				duration = 4;
+				break;
 			case 0x7b: 
 				Log::d("LD A,E");
 				ld(A, E);
@@ -269,6 +274,11 @@ namespace gbemu {
 				add(A, B, "Z 0 H C");
 				duration = 4;
 				break;
+			// case 0x86:
+// 				Log::d("ADD A,(HL)");
+// 				add(A, NOP, HL, NOP);
+// 				duration = 8;
+// 				break;
 			case 0x90:
 				Log::d("SUB B");
 				sub(B);
@@ -354,30 +364,34 @@ namespace gbemu {
 	}
 	
 	void CPU::sub(Register8 reg) {
-		auto regPtr = getRegisterPointer(reg);
+		uint8_t* regPtr = getRegisterPointer(reg);
+		uint8_t old = a;
 		a -= *regPtr;
-		setCpuFlags(CpuFlags("Z 1 H C"), a, &a, regPtr);
+		uint8_t newV = -(*regPtr);
+		setCpuFlags(CpuFlags("Z 1 H C"), old, a, newV);
 	}
 	
 	void CPU::cp(DataType dataType) {
 		// there's only D8
-		auto v = readRam(_pc++);
+		uint8_t v = -readRam(_pc++);
+		Log::d(" 0x%2x", v);
 		//printf("CP %4x %4x %4x\n", a, v, a-v);
-		uint8_t compA = a - v;
-		setCpuFlags(CpuFlags("Z 1 H C"), compA, &compA, &v);
+		uint8_t comp = a + v;
+		setCpuFlags(CpuFlags("Z 1 H C"), a, comp, v);
 	}
 	
 	void CPU::cpind(Register16 reg) {
 		uint8_t v;
 		switch (reg) {
 			case HL:
-				v = readWord(hl());
+				v = readRam(hl());
 				break;
 			default:
 				Log::e("ERROR: cpind case not impl");
 		}
 		uint8_t comp = a - v;
-		setCpuFlags(CpuFlags("Z 1 H C"), comp, &comp, &v);
+		v *= -1;
+		setCpuFlags(CpuFlags("Z 1 H C"), a, comp, v);
 	}
 	
 	uint16_t CPU::readWord(uint16_t addr) {
@@ -448,28 +462,28 @@ namespace gbemu {
 	}
 	
 	template<typename T>	
-	void CPU::setCpuFlags(CpuFlags flags, T oldR1, T* reg1Ptr, T* reg2Ptr) {
+	void CPU::setCpuFlags(CpuFlags flags, T oldR1, T reg1, int reg2) {
 		if (flags.checkZ()) {
-			if (*reg1Ptr == 0) {
+			if (reg1 == 0) {
 				f = SET_BIT(f, ZERO_FLAG_POS);
 			} else {
 				f = RESET_BIT(f, ZERO_FLAG_POS);
 			}
 		}
 		if (flags.checkN()) {
-			if (*reg1Ptr >=0 && *reg1Ptr <= 127) {
+			if (reg1 < 0) {
 				f = SET_BIT(f, SUBTRACT_FLAG_POS);
 			} else {
 				f = RESET_BIT(f, SUBTRACT_FLAG_POS);
 			}
 		}
 		if (flags.checkC()) {
-			if ((oldR1) > 0 && (*reg2Ptr) > 0 && (*reg1Ptr < 0)) {
+			if (oldR1 > 0 && reg2 > 0 && reg1 < 0) {
+				f = SET_BIT(f, CARRY_FLAG_POS);
+			} 
+			if (oldR1 < 0 && reg2 < 0 && reg1 > 0) {
 				f = SET_BIT(f, CARRY_FLAG_POS);
 			}
-			if ((oldR1) < 0 && (*reg2Ptr) < 0 && (*reg1Ptr > 0)) {
-				f = SET_BIT(f, CARRY_FLAG_POS);
-			}	
 		}
 		if (flags.checkH()) {
 			// TODO: Half Carry
@@ -502,36 +516,30 @@ namespace gbemu {
 	}
 
 	void CPU::add(Register16 reg, int8_t much, string flags) {
-		int16_t oldR1, newV;
-		uint8_t* reg1Ptr;
-		uint8_t* reg2Ptr;
+		uint16_t oldR1;
 		switch (reg) {
 			case HL:
-				oldR1 = (h << 8) + l;
-				reg1Ptr = &h;
-				reg2Ptr = &l;
-				newV += much;
-				h = (uint8_t) (newV >> 8);
-				l = (uint8_t) newV;
+				oldR1 = hl();
+				hl(hl() + much);
 				break;
 			default:
 				Log::e("add not implemented for this register pair");
 				break;
 		}
-		setCpuFlags(CpuFlags(flags), oldR1, (int16_t*) reg1Ptr, (int16_t*) reg2Ptr);
+		setCpuFlags(CpuFlags(flags), oldR1, hl(), much);
 	}
 	
 	void CPU::add(Register8 reg1, Register8 reg2, string flags) {
-		int8_t* reg1Ptr = (int8_t*) getRegisterPointer(reg1);
-		int8_t* reg2Ptr = (int8_t*) getRegisterPointer(reg2);
-		int8_t oldR1 = *reg1Ptr;
+		auto reg1Ptr = getRegisterPointer(reg1);
+		auto reg2Ptr = getRegisterPointer(reg2);
+		auto oldR1 = *reg1Ptr;
 		*reg1Ptr = (*reg1Ptr) + (*reg2Ptr);
-		setCpuFlags(CpuFlags(flags), oldR1, (int8_t*) getRegisterPointer(reg1), (int8_t*) getRegisterPointer(reg2));
+		setCpuFlags(CpuFlags(flags), oldR1, *reg1Ptr, *reg2Ptr);
 	}
 	
 	void CPU::inc(Register16 reg, string flags) {
-		uint16_t oldR, v;
-		uint16_t* valuePtr;
+		uint16_t oldR;
+		uint16_t v;
 		switch (reg) {
 			case HL:
 				oldR = hl();
@@ -548,23 +556,25 @@ namespace gbemu {
 				Log::e(">> ERROR: INC nn not implemented");
 				
 		}
-		valuePtr = &v;
-		setCpuFlags(CpuFlags(flags), oldR, valuePtr, valuePtr);
+		int one = 1;
+		setCpuFlags(CpuFlags(flags), oldR, v, one);
 	}
 	
 	void CPU::inc(Register8 reg, string flags) {
 		uint8_t* regPtr = getRegisterPointer(reg);
-		auto oldR = *regPtr;
-		*regPtr = oldR + 1;
-		setCpuFlags(CpuFlags(flags), oldR, regPtr, regPtr);
+		uint8_t oldR = *regPtr;
+		uint8_t one = 1;
+		*regPtr = oldR + one;
+		setCpuFlags(CpuFlags(flags), oldR, *regPtr, one);
 	}
 	
 	void CPU::dec(Register8 reg, string flags) {
 		uint8_t* regPtr = getRegisterPointer(reg);
 		uint8_t oldR = *regPtr;
-		*regPtr = oldR - 1;
+		uint8_t v = -1;
+		*regPtr = oldR + v;
 		// cout << " before " << bitset<8>(oldR) << " after " << bitset<8>(*regPtr) << endl;
-		setCpuFlags(CpuFlags(flags), oldR, regPtr, regPtr);
+		setCpuFlags(CpuFlags(flags), oldR, *regPtr, v);
 	}
 	
 	uint16_t CPU::pc() {
@@ -671,7 +681,10 @@ namespace gbemu {
 		if (address == LY) {
 			// reset the current scanline if the game tries to write to it
 			ram[address] = 0;
-		} else {			
+		} else {	
+			if (address==0x28 && value == 0x0f) {
+				Log::e("\nERROR WRONG WRONG\n");
+			}
 			ram[address] = value;
 		}
 	}
@@ -732,7 +745,7 @@ namespace gbemu {
 		int v;
 		switch (reg) {
 			case A:
-				a = a ^ a;
+				a = 0;
 				v = a;
 				break;
 		}
@@ -756,7 +769,7 @@ namespace gbemu {
 
 	void CPU::ld(Register8 reg, DataType dataType) {
 		uint8_t* regPtr = getRegisterPointer(reg);
-		*regPtr = ram[_pc++];
+		*regPtr = ram[_pc++];	
 		Log::d(" %s", bitset<8>(ram[_pc-1]).to_string().c_str());
 	}
 	
@@ -781,7 +794,7 @@ namespace gbemu {
 		} else { 
 			uint16_t* regPtr = getRegisterPointer(reg);
 			if (dataType == D16) {
-				*regPtr = readWord(_pc); // little endian
+				*regPtr = readWord(_pc);
 				_pc += 2;
 			} else {
 				*regPtr = ram[_pc++];
@@ -793,6 +806,7 @@ namespace gbemu {
 		if (regA == HL) { // special case
 			auto vhl = hl();
 			writeRam(vhl, *getRegisterPointer(regB));
+			Log::d(" RAM[hl-1]: %02x %02x %02x", ram[vhl], ram[vhl+1], ram[vhl+2]);
 			switch (opA) {
 				case SUB: vhl--; break;
 				case ADD: vhl++; break;
@@ -816,19 +830,21 @@ namespace gbemu {
 	}
 	
 	void CPU::ldind2(Register8 regA, Operation opA, Register16 regB, Operation opB) {
-		uint8_t v;
+		uint16_t addr;
 		if (regB == BC) {
 			auto bPtr = getRegisterPointer(B);
 			auto cPtr = getRegisterPointer(C);
-			v = (*bPtr << 8) + (*cPtr);
+			addr = ((*bPtr) << 8) + (*cPtr);
 		} else if (regB == DE) {
 			auto dPtr = getRegisterPointer(D);
 			auto ePtr = getRegisterPointer(E);
-			v = (*dPtr << 8) + (*ePtr);
+			addr = ((*dPtr) << 8) + (*ePtr);
+		} else if (regB == HL) {
+			addr = hl();
 		} else {
-			v = readRam(*getRegisterPointer(regB));
+			Log::e("error ldind2() branch not implemented");
 		}
-		*getRegisterPointer(regA) = v;
+		*getRegisterPointer(regA) = readRam(addr);
 		if (opA != Operation::NOP || opB != Operation::NOP) {
 			Log::e("ldind2() branch not implemented");
 		}

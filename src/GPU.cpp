@@ -92,8 +92,17 @@ namespace gbemu {
 	void GPU::drawBackground(uint8_t lcdc) {
 		auto scrollX = cpu.scrollX();
 		auto scrollY = cpu.scrollY();
+		auto windowX = cpu.windowX();
+		auto windowY = cpu.windowY();
 		auto scanline = cpu.ly();
 		if (scanline > 143) return;
+		
+		auto win = false;
+		if (CHECK_BIT(lcdc, WINDOW_DISPLAY_ENABLE)) {
+			if (windowY <= scanline) {
+				win = true;
+			}
+		}
 		
 		int tilePatternTable;
 		bool sign;
@@ -105,17 +114,30 @@ namespace gbemu {
 			sign = true;
 		}
 		int backgroundMap; // this resembles sprites
-		if (!CHECK_BIT(lcdc, BG_TILE_MAP_DISPLAY_SELECT)) {
-			backgroundMap = TILE_BG_MAP_1;
+		if (win) {
+			if (!CHECK_BIT(lcdc, WINDOW_TILE_MAP_DISPLAY_SELECT)) {
+				backgroundMap = TILE_BG_MAP_1;
+			} else {
+				backgroundMap = TILE_BG_MAP_2;
+			}	
 		} else {
-			backgroundMap = TILE_BG_MAP_2;
+			if (!CHECK_BIT(lcdc, BG_TILE_MAP_DISPLAY_SELECT)) {
+				backgroundMap = TILE_BG_MAP_1;
+			} else {
+				backgroundMap = TILE_BG_MAP_2;
+			}	
 		}
 
-		auto yPos = scrollY+scanline;
+		auto yPos = win ? scanline-windowY : scrollY+scanline;
 		auto tileRow = (yPos/8)*32; 
 		
 		for (int i = 0; i < 160; i++) {
 			uint8_t xPos = i + scrollX;
+			if (win) {
+				if (i > windowX) {
+					xPos = i - windowX;
+				}
+			}
 			uint16_t tileCol = xPos / 8;
 			uint16_t tilePatternAddr = backgroundMap + tileRow + tileCol;
 			uint16_t tileDataAddr;
@@ -126,7 +148,6 @@ namespace gbemu {
 				int8_t tilePatternNum = (int8_t) cpu.readRam(tilePatternAddr);
 				tileDataAddr = (tilePatternNum + 128) * 16;
 			}
-			tileDataAddr*=2;
 							
 			uint8_t whichTileLine = (yPos % 8) * 2; // each line in a tile takes 2 bytes
 			uint8_t tileLinePart1 = cpu.readRam(tileDataAddr + whichTileLine);
@@ -135,8 +156,6 @@ namespace gbemu {
 			auto pixelCode = (CHECK_BIT(tileLinePart1, 7-(xPos%8)) ? 1 : 0) + (CHECK_BIT(tileLinePart2, 7-(xPos%8)) ? 2 : 0);
 			auto pixelColor = getColorFromPalette(BGP, pixelCode);
 			
-			// TODO: xFlip
-
 			auto x = i;
 			auto y = scanline;
 			if (x < 0 || x > 159 || y < 0 || y > 143) {
@@ -153,12 +172,7 @@ namespace gbemu {
 			// }
 		}
 	}
-	
-	void GPU::drawWindow(uint8_t lcdc) {
-		auto windowX = cpu.windowX();
-		if (windowX > 166) return;
-		auto windowY = cpu.windowY();
-	}
+
 	
 	void GPU::drawSprites(uint8_t lcdc) {
 		
@@ -235,17 +249,16 @@ namespace gbemu {
 		if (scanlineDelayCounter > 0) return; 
 		
 		auto currentLine = cpu.ly();		
+		cpu.ly(currentLine + 1);
 		if (currentLine == 144) {
-			Log::d("V_BLANK Started\n");
+			Log::i("V_BLANK Started\n");
 			interrupt.request(Interrupt::V_BLANK);
 		} else if (currentLine > 153) { // V-Blank finished
-			Log::d("V_BLANK Finished\n");
+			Log::i("V_BLANK Finished\n");
 			cpu.ly(0);
 		} else {
 			drawScanLine(cpu.lcdc(), currentLine);
 		}
-		cpu.ly(currentLine + 1);
-		
 	}
 	
 	void GPU::initGraphics() {
@@ -256,18 +269,18 @@ namespace gbemu {
 	
 	void GPU::drawPixels() {
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
-		
+
 		glMatrixMode(GL_PROJECTION);
 		glLoadIdentity();
 		glOrtho(0, width, height, 0, -1, 1);
-		
+
 		glMatrixMode(GL_MODELVIEW);
 		glLoadIdentity();
 
 		glEnable(GL_TEXTURE_2D);
 		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		
+
 		glBegin(GL_QUADS);
 		    glTexCoord2i(0, 0); glVertex2i(0.0f, 0.0f);
 		    glTexCoord2i(0, 1); glVertex2i(0.0f, (float)height);
@@ -286,12 +299,6 @@ namespace gbemu {
 			prevHeight = height;
 			reallocatePixelsBuffer();
 			glViewport(0.0f, 0.0f, width, height);
-		}
-		
-		//glDrawPixels(width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels);
-		
-		if (CHECK_BIT(lcdc, WINDOW_DISPLAY_ENABLE)) {
-			drawWindow(lcdc);
 		}
 		
 		if (CHECK_BIT(lcdc, BG_DISPLAY)) {

@@ -88,8 +88,7 @@ int main(int argc, char *argv[]) {
 	cpu.loadRom(gbemu::getByteBufferFromPath("./build/bootstrap.bin"), 0x100);
 	//cpu.powerUpSequence();
 
-	auto cycles = 1;
-	//auto cycles = 3 + 8191*3 + 9;
+	auto cycles = 50;
 	// for(size_t i = 0; i < cycles; ++i)
 	// {
 	// cpu.emulateCycle();

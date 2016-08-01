@@ -152,7 +152,7 @@ namespace gbemu {
 		uint16_t _pc, _sp;
 		
 		template<typename T> 
-		void setCpuFlags(CpuFlags flags, T oldR1, T* reg1Ptr, T* reg2Ptr);
+		void setCpuFlags(CpuFlags flags, T oldR1, T reg1Ptr, int reg2Ptr);
 	};
 
 }
