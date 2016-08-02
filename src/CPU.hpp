@@ -127,8 +127,8 @@ namespace gbemu {
 		void bit(int whichBit, Register8 reg);
 		int jr(Condition cond, DataType dataType); // returns duration. jumps have different durations according to action or no action taken
 		void add(Register8 reg1, Register8 reg2, string flags);
-		void add(Register8 reg, int8_t much, string flags);
-		void add(Register16 reg, int8_t much, string flags);
+		void add(Register8 reg, uint8_t much, string flags);
+		void add(Register16 reg, uint8_t much, string flags);
 		void inc(Register8 reg, string flags);
 		void inc(Register16 reg, string flags);
 		void dec(Register8 reg, string flags);
@@ -150,6 +150,8 @@ namespace gbemu {
 	private:
 		uint8_t a, b, c, d, e, f, h, l;
 		uint16_t _pc, _sp;
+		
+		int dividerAcc;
 		
 		template<typename T> 
 		void setCpuFlags(CpuFlags flags, T oldR1, T reg1Ptr, int reg2Ptr);

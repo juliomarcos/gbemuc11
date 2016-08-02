@@ -10,7 +10,7 @@
 namespace gbemu {
 	
 	class GPU {
-		
+	public:
 		const static int TILE_PATTERNS_TABLE_SPRITE_BG = 0;
 		const static int TILE_PATTERNS_TABLE_BG_WINDOW = 0x800;
 		const static int TILE_BG_MAP_1 = 0x9800;
@@ -50,7 +50,7 @@ namespace gbemu {
 		int prevWidth, prevHeight;
 		byte* pixels;
 		
-	public:
+
 		GPU(GLFWwindow* window, CPU& cpu, Interrupt& interrupt) : window(window), cpu(cpu), interrupt(interrupt), pixels(NULL) {
 		}
 		virtual ~GPU();

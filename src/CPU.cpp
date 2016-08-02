@@ -1,4 +1,5 @@
 #include "CPU.hpp"
+#include "GPU.hpp"
 
 namespace gbemu {
 
@@ -373,11 +374,11 @@ namespace gbemu {
 	
 	void CPU::cp(DataType dataType) {
 		// there's only D8
-		uint8_t v = -readRam(_pc++);
+		uint8_t v = readRam(_pc++);
 		Log::d(" 0x%2x", v);
 		//printf("CP %4x %4x %4x\n", a, v, a-v);
-		uint8_t comp = a + v;
-		setCpuFlags(CpuFlags("Z 1 H C"), a, comp, v);
+		uint8_t comp = a - v;
+			setCpuFlags(CpuFlags("Z 1 H C"), a, comp, -v);
 	}
 	
 	void CPU::cpind(Register16 reg) {
@@ -418,16 +419,16 @@ namespace gbemu {
 	
 	void CPU::rl(Register8 reg) {
 		uint8_t* regPtr = getRegisterPointer(reg);
-		auto v = *regPtr;
-		uint8_t oldCarryFlagMask = (f >> (8-CARRY_FLAG_POS)) & 1;
-		uint8_t clearCarryFlag = (f & ~(1 << CARRY_FLAG_POS));
-		uint8_t bit7InCarryPosition = (v & (1 << 7)) >> (7-CARRY_FLAG_POS);
-		v = (v << 1) | oldCarryFlagMask;
-		*regPtr = v;
+		uint8_t v = *regPtr;
+		f = f & 0xf; // clear top flags
+		v = (v << 1);
 		if (v == 0) {
 			f = RESET_BIT(f, ZERO_FLAG_POS);
 		}
-		f = clearCarryFlag | bit7InCarryPosition;
+		if (CHECK_BIT(v, 7)) {
+			f = SET_BIT(f, CARRY_FLAG_POS);
+		}
+		*regPtr = v;
 	}
 	
 	void CPU::push(Register16 reg) {
@@ -513,20 +514,6 @@ namespace gbemu {
 		if (flags.oneH()) {
 			f = SET_BIT(f, HALF_CARRY_FLAG_POS);
 		}
-	}
-
-	void CPU::add(Register16 reg, int8_t much, string flags) {
-		uint16_t oldR1;
-		switch (reg) {
-			case HL:
-				oldR1 = hl();
-				hl(hl() + much);
-				break;
-			default:
-				Log::e("add not implemented for this register pair");
-				break;
-		}
-		setCpuFlags(CpuFlags(flags), oldR1, hl(), much);
 	}
 	
 	void CPU::add(Register8 reg1, Register8 reg2, string flags) {
@@ -678,13 +665,32 @@ namespace gbemu {
 	
 	void CPU::writeRam(uint16_t address, uint8_t value) {
 		// TODO: do several checks here
-		if (address == LY) {
+		// TODO: check if the value 1 got written into FF50 unmaps the boot ROM, and the first 256 bytes of the address space, where it effectively was mapped, now gets mapped to the beginning of the cartridge’s ROM.
+		if (address < 0x8000) {
+			// TODO: memory bank
+		}
+		else if (address == LY) {
 			// reset the current scanline if the game tries to write to it
-			ram[address] = 0;
-		} else {	
-			if (address==0x28 && value == 0x0f) {
-				Log::e("\nERROR WRONG WRONG\n");
+			ram[LY] = 0;
+		} else if ( (address >= 0xe000) && (address < 0xfe00) ) { 
+			ram[address] = value;
+			writeRam(address-0x2000, value);
+		}  else if ((address >= 0xfea0) && (address <= 0xfeff)) {
+ 			// restricted area
+		} else if (address == 0xff04) {
+			// reset the divider register
+			ram[0xff04] = 0 ;
+			dividerAcc = 0 ;
+		} else if (address == 0xff46) {
+			// TODO: check to see how this influences cycles?
+			// DMA
+			uint16_t addr = value << 8;
+			for (int i=0; i < 0xa0; i++) {
+				writeRam(GPU::OAM+i, readRam(addr+i));
 			}
+		} else if (address==0x28 && value == 0x0f)	{
+			Log::e("\nERROR WRONG WRONG\n");
+		} else {
 			ram[address] = value;
 		}
 	}
@@ -755,7 +761,7 @@ namespace gbemu {
 	}
 	
 	void CPU::ldhE0() {
-		int16_t addr = readRam(_pc++) + 0xff00;
+		uint16_t addr = readRam(_pc++) + 0xff00;
 		// printf("ldhE0 addr %4x\n");
 		writeRam(addr, a);
 		// cout << " ram[0xff40] " << bitset<8>(ram[0xff40]) << endl;
@@ -763,7 +769,7 @@ namespace gbemu {
 
 	void CPU::ldhF0() {
 		uint8_t n = readRam(_pc++);
-		int16_t addr = n + 0xff00;
+		uint16_t addr = n + 0xff00;
 		a = readRam(addr);
 	}
 
@@ -806,7 +812,7 @@ namespace gbemu {
 		if (regA == HL) { // special case
 			auto vhl = hl();
 			writeRam(vhl, *getRegisterPointer(regB));
-			Log::d(" RAM[hl-1]: %02x %02x %02x", ram[vhl], ram[vhl+1], ram[vhl+2]);
+			Log::d(" RAM[hl]: %02x %02x %02x", ram[vhl], ram[vhl+1], ram[vhl+2]);
 			switch (opA) {
 				case SUB: vhl--; break;
 				case ADD: vhl++; break;
@@ -821,7 +827,8 @@ namespace gbemu {
 	
 	void CPU::ldind(DataType dataType, Register8 reg) {
 		if (dataType == A16 && reg == A) {
-			int16_t addr = (int16_t) readWord(_pc);
+			uint16_t addr = readWord(_pc);
+			Log::d(" addr 0x%04x ", addr);
 			_pc+=2;
 			writeRam(addr, a);	
 		} else {
@@ -832,13 +839,9 @@ namespace gbemu {
 	void CPU::ldind2(Register8 regA, Operation opA, Register16 regB, Operation opB) {
 		uint16_t addr;
 		if (regB == BC) {
-			auto bPtr = getRegisterPointer(B);
-			auto cPtr = getRegisterPointer(C);
-			addr = ((*bPtr) << 8) + (*cPtr);
+			addr = (b << 8) + (c);
 		} else if (regB == DE) {
-			auto dPtr = getRegisterPointer(D);
-			auto ePtr = getRegisterPointer(E);
-			addr = ((*dPtr) << 8) + (*ePtr);
+			addr = (d << 8) + (e);
 		} else if (regB == HL) {
 			addr = hl();
 		} else {
