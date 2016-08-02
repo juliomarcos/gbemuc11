@@ -112,11 +112,8 @@ int main(int argc, char *argv[]) {
 		glfwPollEvents();
 		
 		// TODO: remover this artificial for tests only limitation
-		cycles -= cyclesThisInstruction;
+		// cycles -= cyclesThisInstruction;
 		// if (cycles <= 0) break;
-		// if (cycles > 40) {
-		// 	gbemu::Log::currentLogLevel = gbemu::LogLevel::DEBUG;
-		// }
 	}
 
 	glfwTerminate();

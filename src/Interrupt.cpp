@@ -1,4 +1,5 @@
 #include "Interrupt.hpp"
+#include "BitUtils.hpp"
 
 namespace gbemu {
 	
@@ -23,6 +24,7 @@ namespace gbemu {
 	}
 		
 	void Interrupt::service(uint8_t which) {
+		Log::i("Serving interrupt %d\n", which);
 		cpu.ime(false);
 		auto irflag = cpu.irflag();
 		irflag = RESET_BIT(irflag, which);
@@ -35,5 +37,6 @@ namespace gbemu {
 			case 3: cpu.pc(SERIAL_LOCATION); break;
 			case 4: cpu.pc(JOYPAD_LOCATION ); break;
 		}
+		cpu.writeRam(0xff0f, RESET_BIT(cpu.readRam(0xff0f), which));
 	}
 }

@@ -318,7 +318,7 @@ namespace gbemu {
 			case 0xcd:
 				Log::d("CALL a16");
 				call(A16);
-				duration = 24;
+				duration = 12;
 				break;
 			case 0xe0:
 				Log::d("LDH (a8),A");
@@ -401,7 +401,7 @@ namespace gbemu {
 	
 	void CPU::call(DataType dataType) {
 		writeRam(--_sp, (_pc+2) >> 8); // b1
-		writeRam(--_sp, _pc+2); // b2 works using truncation
+		writeRam(--_sp, (_pc+2)); // b2 works using truncation
 		auto nextInstruction = readWord(_pc);
 		_pc = nextInstruction;
 	}
@@ -420,19 +420,22 @@ namespace gbemu {
 	void CPU::rl(Register8 reg) {
 		uint8_t* regPtr = getRegisterPointer(reg);
 		uint8_t v = *regPtr;
-		f = f & 0xf; // clear top flags
-		v = (v << 1);
+		auto isCarrySet = CHECK_BIT(f, CARRY_FLAG_POS);
+		f = f & 0xf; // clear bottom flags
+		if (CHECK_BIT(v, 7)) {
+			f = SET_BIT(f, CARRY_FLAG_POS);
+		}
+		v <<= 1;
 		if (v == 0) {
 			f = RESET_BIT(f, ZERO_FLAG_POS);
 		}
-		if (CHECK_BIT(v, 7)) {
-			f = SET_BIT(f, CARRY_FLAG_POS);
+		if (isCarrySet) {
+			v = SET_BIT(v, 0);
 		}
 		*regPtr = v;
 	}
 	
 	void CPU::push(Register16 reg) {
-		uint16_t v;
 		if (reg == BC) {
 			writeRam(--_sp, b);
 			writeRam(--_sp, c);
@@ -461,7 +464,7 @@ namespace gbemu {
 				break;
 			case Register16::SP:
 			case Register16::PC:
-				Log::e("ERROR: invalid opcode\n");
+				Log::e("ERROR: invalid operation\n");
 				break;
 		}
 	}

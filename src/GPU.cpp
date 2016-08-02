@@ -94,8 +94,7 @@ namespace gbemu {
 		auto scrollY = cpu.scrollY();
 		auto windowX = cpu.windowX();
 		auto windowY = cpu.windowY();
-		auto scanline = cpu.ly();
-		if (scanline > 143) return;
+		const auto scanline = cpu.ly();
 		
 		auto win = false;
 		if (CHECK_BIT(lcdc, WINDOW_DISPLAY_ENABLE)) {
@@ -128,8 +127,8 @@ namespace gbemu {
 			}	
 		}
 
-		auto yPos = win ? scanline-windowY : scrollY+scanline;
-		auto tileRow = (yPos/8)*32; 
+		int yPos = win ? scanline-windowY : scrollY+scanline;
+		int tileRow = (yPos/8)*32; 
 		
 		for (int i = 0; i < 160; i++) {
 			uint8_t xPos = i + scrollX;
@@ -153,23 +152,17 @@ namespace gbemu {
 			uint8_t tileLinePart1 = cpu.readRam(tileDataAddr + whichTileLine);
 			uint8_t tileLinePart2 = cpu.readRam(tileDataAddr + whichTileLine + 1);
 			
-			auto pixelCode = (CHECK_BIT(tileLinePart1, 7-(xPos%8)) ? 1 : 0) + (CHECK_BIT(tileLinePart2, 7-(xPos%8)) ? 2 : 0);
-			auto pixelColor = getColorFromPalette(BGP, pixelCode);
+			const auto pixelCode = (CHECK_BIT(tileLinePart1, 7-(xPos%8)) ? 1 : 0) | (CHECK_BIT(tileLinePart2, 7-(xPos%8)) ? 2 : 0);
+			const auto pixelColor = getColorFromPalette(BGP, pixelCode);
 			
-			auto x = i;
-			auto y = scanline;
+			const auto x = i;
+			const auto y = scanline;
 			if (x < 0 || x > 159 || y < 0 || y > 143) {
 				Log::e("ERROR: drawBackground. one is true: x < 0 || x > 159 || y < 0 || y > 143\n");
 				Log::e("x %d y %d\n", x, y);
 				continue; // ERROR, don't crash the emulator because of that
 			}
-			// printf ("x %d y %d color %d\n", x, y, pixelColor);
 			writePixel(pixelColor, y*LINE_WIDTH + x);
-			// if (scanline <= 100) {
-			// 	writePixel(0, y*LINE_WIDTH + x);
-			// } else {
-			// 	writePixel(3, y*LINE_WIDTH + x);
-			// }
 		}
 	}
 
@@ -243,22 +236,27 @@ namespace gbemu {
 		if (CHECK_BIT(lcdc, LCD_DISPLAY_ENABLE)) {
 			scanlineDelayCounter -= cycles;
 		} else {
-			// Log::d("lcd not enabled\n");
+			Log::i("lcd not enabled\n");
 			return;
 		}
 		if (scanlineDelayCounter > 0) return; 
 		
-		auto currentLine = cpu.ly();		
-		cpu.ly(currentLine + 1);
-		if (currentLine == 144) {
-			Log::i("V_BLANK Started\n");
-			interrupt.request(Interrupt::V_BLANK);
-		} else if (currentLine > 153) { // V-Blank finished
-			Log::i("V_BLANK Finished\n");
-			cpu.ly(0);
-		} else {
+		scanlineDelayCounter = 456;
+		cpu.ly(cpu.ly() + 1);
+		auto currentLine = cpu.ly();
+		
+		if (currentLine < 144) {
 			drawScanLine(cpu.lcdc(), currentLine);
 		}
+		else if (currentLine == 144) {
+			Log::i("V_BLANK Started\n");
+			interrupt.request(Interrupt::V_BLANK);
+		}
+		else if (currentLine > 153) { // V-Blank finished
+			Log::i("V_BLANK Finished\n");
+			cpu.ly(0);
+		}
+		
 	}
 	
 	void GPU::initGraphics() {
