@@ -101,6 +101,9 @@ namespace gbemu {
 		void af(uint16_t);
 		void bc(uint16_t);
 		void de(uint16_t);
+		uint16_t af();
+		uint16_t bc();
+		uint16_t de();
 		uint8_t lyc();
 		uint8_t ly();
 		void ly(uint8_t scanline);

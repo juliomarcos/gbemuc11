@@ -459,31 +459,43 @@ namespace gbemu {
 				l = readRam(_sp++);
 				h = readRam(_sp++);
 				break;
+			case Register16::SP:
+			case Register16::PC:
+				Log::e("ERROR: invalid opcode\n");
+				break;
 		}
 	}
 	
 	template<typename T>	
-	void CPU::setCpuFlags(CpuFlags flags, T oldR1, T reg1, int reg2) {
+	void CPU::setCpuFlags(CpuFlags flags, T oldR1, T r1, int r2) {
 		if (flags.checkZ()) {
-			if (reg1 == 0) {
+			if (r1 == 0) {
 				f = SET_BIT(f, ZERO_FLAG_POS);
 			} else {
 				f = RESET_BIT(f, ZERO_FLAG_POS);
 			}
 		}
 		if (flags.checkN()) {
-			if (reg1 < 0) {
+			if (r1 < 0) {
 				f = SET_BIT(f, SUBTRACT_FLAG_POS);
 			} else {
 				f = RESET_BIT(f, SUBTRACT_FLAG_POS);
 			}
 		}
 		if (flags.checkC()) {
-			if (oldR1 > 0 && reg2 > 0 && reg1 < 0) {
-				f = SET_BIT(f, CARRY_FLAG_POS);
-			} 
-			if (oldR1 < 0 && reg2 < 0 && reg1 > 0) {
-				f = SET_BIT(f, CARRY_FLAG_POS);
+			if (r2 < 0) { // it's a SUB/SBC/CP
+				r2 *= -1;
+				if (r2 > oldR1) {
+					f = SET_BIT(f, CARRY_FLAG_POS);
+				} else {
+					f = RESET_BIT(f, CARRY_FLAG_POS);
+				}
+			} else { // it's an ADD
+				if (oldR1 > r1) {
+					f = SET_BIT(f, CARRY_FLAG_POS);
+				} else {
+					f = SET_BIT(f, CARRY_FLAG_POS);
+				}
 			}
 		}
 		if (flags.checkH()) {
@@ -594,6 +606,18 @@ namespace gbemu {
 	void CPU::de(uint16_t v) {
 		d = v >> 8;
 		e = (uint8_t) v;
+	}
+	
+	uint16_t CPU::af() {
+		return (a<<8) + f;
+	}
+	
+	uint16_t CPU::bc() {
+		return (b<<8) + c;
+	}
+	
+	uint16_t CPU::de() {
+		return (d<<8) + e;
 	}
 	
 	uint8_t CPU::lyc() {
@@ -748,15 +772,12 @@ namespace gbemu {
 	}
 	
 	void CPU::ixor(Register8 reg) {
-		int v;
-		switch (reg) {
-			case A:
-				a = 0;
-				v = a;
-				break;
-		}
-		if (v == 0) {
+		uint8_t* regPtr = getRegisterPointer(reg);
+		a = a ^ (*regPtr);
+		if (a == 0) {
 			f = (1 << 7);
+		} else {
+			f = 0;
 		}
 	}
 	
@@ -816,6 +837,7 @@ namespace gbemu {
 			switch (opA) {
 				case SUB: vhl--; break;
 				case ADD: vhl++; break;
+				case NOP: break;
 			}
 			hl(vhl);
 		} else {
@@ -839,9 +861,9 @@ namespace gbemu {
 	void CPU::ldind2(Register8 regA, Operation opA, Register16 regB, Operation opB) {
 		uint16_t addr;
 		if (regB == BC) {
-			addr = (b << 8) + (c);
+			addr = bc();
 		} else if (regB == DE) {
-			addr = (d << 8) + (e);
+			addr = de();
 		} else if (regB == HL) {
 			addr = hl();
 		} else {
@@ -875,7 +897,10 @@ namespace gbemu {
 	int CPU::jr(Condition cond, DataType dataType) {
 		int data;
 		switch (dataType) {
-			case R8: data = (int8_t) ram[_pc++];
+			case R8: data = (int8_t) ram[_pc++]; break;
+			case D16: data = readWord(_pc); _pc+=2; break;
+			default:
+				Log::e("ERROR: jr case not implemented\n");
 		}
 		switch (cond) {
 			case Z:
@@ -897,7 +922,7 @@ namespace gbemu {
 				return 12;
 			default: 
 				Log::e("ERROR: CPU::jr -> Condition case not treated");
-				break;
+				return 0;
 		}
 	}
 	
