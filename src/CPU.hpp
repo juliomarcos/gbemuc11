@@ -81,6 +81,8 @@ namespace gbemu {
 		CPU();
 		virtual ~CPU();
 		
+		uint8_t a, b, c, d, e, f, h, l;
+		uint16_t _pc, _sp;
 		byte ram[64 * 1024];
 		
 		int emulateNextInstruction();
@@ -154,8 +156,6 @@ namespace gbemu {
 		vector<char> getRomBuffer();
 	
 	private:
-		uint8_t a, b, c, d, e, f, h, l;
-		uint16_t _pc, _sp;
 		
 		int dividerAcc;
 		

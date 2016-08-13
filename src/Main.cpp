@@ -113,8 +113,8 @@ int main(int argc, char *argv[]) {
 		auto cyclesThisInstruction = 0;
 		
 		while (cyclesThisFrame < CYCLES_PER_FRAME) {			
-			//cyclesThisInstruction = cpu.emulateNextInstruction(); 
-			cyclesThisInstruction = 12;
+			cyclesThisInstruction = cpu.emulateNextInstruction();
+			// cyclesThisInstruction = 12;
 			gpu.draw(cyclesThisInstruction);
 			//timers.update(cyclesThisInstruction);
 			interrupt.run();
@@ -130,6 +130,7 @@ int main(int argc, char *argv[]) {
 		glfwPollEvents();
 		ImGui_ImplGlfw_NewFrame();
 		debugger::MemoryViewer(cpu);
+		debugger::RegistersViewer(cpu);
 		
         // Debugger Rendering
         int displayW, displayH;
