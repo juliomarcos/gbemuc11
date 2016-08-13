@@ -1,3 +1,5 @@
+#include "imgui_impl_glfw.h"
+#include "imgui.h"
 #include <GLFW/glfw3.h>
 #include <execinfo.h>
 #include "StdLibraries.hpp"
@@ -7,8 +9,9 @@
 #include "CPU.hpp"
 #include "GPU.hpp"
 #include "Logger.hpp"
+#include "Debugger.hpp"
 
-gbemu::LogLevel gbemu::Log::currentLogLevel = gbemu::LogLevel::ERROR;
+gbemu::LogLevel gbemu::Log::currentLogLevel = gbemu::LogLevel::NO_LOG;
 
 using namespace std;
 
@@ -32,8 +35,7 @@ namespace gbemu {
 			throw runtime_error("Can't create a window");
 		}
 
-		/* Make the window's context current */
-		glfwMakeContextCurrent(window);
+		//glfwMakeContextCurrent(window);
 		glfwSwapInterval(1);
 
 		return window;
@@ -55,7 +57,7 @@ namespace gbemu {
 
 void handler() {
     void *trace_elems[20];
-    int trace_elem_count(backtrace( trace_elems, 20 ));
+    int trace_elem_count(backtrace(trace_elems, 20));
     char **stack_syms(backtrace_symbols( trace_elems, trace_elem_count ));
     for (int i = 0 ; i < trace_elem_count ; ++i) {
         std::cout << stack_syms[i] << "\n";
@@ -74,17 +76,27 @@ int main(int argc, char *argv[]) {
 		cout << "You need to specify a gameboy rom. e.g >> gbemu Tetris.gb";
 		return -1;
 	}
+	
+	// Setup ImGui binding
+	ImVec4 clearColor = ImColor(114, 144, 154);
+	auto debuggerWindow = gbemu::initWindow(800, 830, "debugger");
+	glfwMakeContextCurrent(debuggerWindow);
+    ImGui_ImplGlfw_Init(debuggerWindow, true);
 
 	auto romFileName = gbemu::getRomFileNameFromPath(romPath);
 	auto windowTitle = string("gbemuc11 - ") + romFileName;
 	auto window = gbemu::initWindow(160, 144, windowTitle);
+	int debuggerX, debuggerY;
+	glfwGetWindowPos(debuggerWindow, &debuggerX, &debuggerY);
+	glfwSetWindowPos(window, debuggerX+800, debuggerY);
 
 	auto cpu = gbemu::CPU::CPU();
 	auto interrupt = gbemu::Interrupt(cpu);
 	auto gpu = gbemu::GPU::GPU(window, cpu, interrupt);
 	gpu.initGraphics();
 
-	cpu.loadRom(gbemu::getByteBufferFromPath(romPath), 0x8000); // TODO: usar isto depois q o bootstrap rodar
+	cpu.setRomBuffer(gbemu::getByteBufferFromPath(romPath));
+	cpu.loadRom(cpu.getRomBuffer(), 0x8000); // TODO: usar isto depois q o bootstrap rodar
 	cpu.loadRom(gbemu::getByteBufferFromPath("./build/bootstrap.bin"), 0x100);
 	//cpu.powerUpSequence();
 
@@ -101,21 +113,39 @@ int main(int argc, char *argv[]) {
 		auto cyclesThisInstruction = 0;
 		
 		while (cyclesThisFrame < CYCLES_PER_FRAME) {			
-			cyclesThisInstruction = cpu.emulateNextInstruction();
+			//cyclesThisInstruction = cpu.emulateNextInstruction(); 
+			cyclesThisInstruction = 12;
 			gpu.draw(cyclesThisInstruction);
 			//timers.update(cyclesThisInstruction);
 			interrupt.run();
 			cyclesThisFrame += cyclesThisInstruction;
 		}
+		
+		glfwMakeContextCurrent(window);
 		gpu.drawPixels();
 		glfwSwapBuffers(window);
 		glfwPollEvents();
+		
+		glfwMakeContextCurrent(debuggerWindow);
+		glfwPollEvents();
+		ImGui_ImplGlfw_NewFrame();
+		debugger::MemoryViewer(cpu);
+		
+        // Debugger Rendering
+        int displayW, displayH;
+        glfwGetFramebufferSize(debuggerWindow, &displayW, &displayH);
+        glViewport(0, 0, displayW, displayH);
+        glClearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
+        glClear(GL_COLOR_BUFFER_BIT);
+        ImGui::Render();
+        glfwSwapBuffers(debuggerWindow);
 		
 		// TODO: remover this artificial for tests only limitation
 		// cycles -= cyclesThisInstruction;
 		// if (cycles <= 0) break;
 	}
 
+	ImGui_ImplGlfw_Shutdown();
 	glfwTerminate();
 	return 0;
 }

@@ -68,6 +68,7 @@ namespace gbemu {
 	
 	class CPU
 	{
+		vector<char> romBuffer;
 		array<byte, CARTRIDGE_SIZE> rom;
 		uint16_t opcode;		
 		int duration;
@@ -149,6 +150,8 @@ namespace gbemu {
 
 		void preInitRom();
 		void loadRom(vector<char> buffer, int romSize);
+		void setRomBuffer(vector<char> buffer);
+		vector<char> getRomBuffer();
 	
 	private:
 		uint8_t a, b, c, d, e, f, h, l;

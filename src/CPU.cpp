@@ -378,7 +378,7 @@ namespace gbemu {
 		Log::d(" 0x%2x", v);
 		//printf("CP %4x %4x %4x\n", a, v, a-v);
 		uint8_t comp = a - v;
-			setCpuFlags(CpuFlags("Z 1 H C"), a, comp, -v);
+		setCpuFlags(CpuFlags("Z 1 H C"), a, comp, -v);
 	}
 	
 	void CPU::cpind(Register16 reg) {
@@ -691,8 +691,6 @@ namespace gbemu {
 	}
 	
 	void CPU::writeRam(uint16_t address, uint8_t value) {
-		// TODO: do several checks here
-		// TODO: check if the value 1 got written into FF50 unmaps the boot ROM, and the first 256 bytes of the address space, where it effectively was mapped, now gets mapped to the beginning of the cartridge’s ROM.
 		if (address < 0x8000) {
 			// TODO: memory bank
 		}
@@ -717,6 +715,11 @@ namespace gbemu {
 			}
 		} else if (address==0x28 && value == 0x0f)	{
 			Log::e("\nERROR WRONG WRONG\n");
+		} else if (address==0xff50 && value == 1) {
+			// unmaps the internal rom
+			// and maps the cartridge
+			//loadRom(romBuffer, 0x8000);
+			//powerUpSequence();
 		} else {
 			ram[address] = value;
 		}
@@ -927,6 +930,14 @@ namespace gbemu {
 				Log::e("ERROR: CPU::jr -> Condition case not treated");
 				return 0;
 		}
+	}
+	
+	void CPU::setRomBuffer(vector<char> buffer) {
+		romBuffer = buffer;
+	}
+	
+	vector<char> CPU::getRomBuffer() {
+		return romBuffer;
 	}
 	
 }
