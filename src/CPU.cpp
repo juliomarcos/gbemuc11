@@ -275,11 +275,11 @@ namespace gbemu {
 				add(A, B, "Z 0 H C");
 				duration = 4;
 				break;
-			// case 0x86:
-// 				Log::d("ADD A,(HL)");
-// 				add(A, NOP, HL, NOP);
-// 				duration = 8;
-// 				break;
+			case 0x86:
+				Log::d("ADD A,(HL)");
+				addInd(A, HL, "Z 0 H C");
+				duration = 8;
+				break;
 			case 0x90:
 				Log::d("SUB B");
 				sub(B);
@@ -357,7 +357,7 @@ namespace gbemu {
 				break;
 			default: 
 				// printf(">> " ANSI_COLOR_YELLOW "%04x" ANSI_COLOR_RESET " : opcode NOT implemented\n", opcode);
-				Log::e(">> %04x : opcode NOT implemented", opcode);
+				Log::e(">> %04x : opcode NOT implemented\n", opcode);
 				break;
 		}
 		// printf(ANSI_COLOR_RESET "\n");
@@ -537,6 +537,20 @@ namespace gbemu {
 		auto oldR1 = *reg1Ptr;
 		*reg1Ptr = (*reg1Ptr) + (*reg2Ptr);
 		setCpuFlags(CpuFlags(flags), oldR1, *reg1Ptr, *reg2Ptr);
+	}
+	
+	void CPU::addInd(Register8 reg1, Register16 reg2, string flags) {
+		auto reg1Ptr = getRegisterPointer(reg1);
+		uint16_t v2Addr;
+		uint8_t v2;
+		switch (reg2) {
+			case HL: v2Addr = hl(); break;
+			default: Log::e("ERROR: addInd case not implemented\n");
+		}
+		v2 = readRam(v2Addr);
+		auto oldR1 = *reg1Ptr;
+		*reg1Ptr = (*reg1Ptr) + v2;
+		setCpuFlags(CpuFlags(flags), oldR1, *reg1Ptr, v2);
 	}
 	
 	void CPU::inc(Register16 reg, string flags) {

@@ -135,6 +135,7 @@ namespace gbemu {
 		void add(Register8 reg1, Register8 reg2, string flags);
 		void add(Register8 reg, uint8_t much, string flags);
 		void add(Register16 reg, uint8_t much, string flags);
+		void addInd(Register8 reg1, Register16 reg2, string flags);
 		void inc(Register8 reg, string flags);
 		void inc(Register16 reg, string flags);
 		void dec(Register8 reg, string flags);

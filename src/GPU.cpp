@@ -104,6 +104,7 @@ namespace gbemu {
 		}
 		
 		int backgroundMap; // this resembles sprites
+		// here are how the drawings are displayed, their positions, etc
 		if (win) {
 			if (!CHECK_BIT(lcdc, WINDOW_TILE_MAP_DISPLAY_SELECT)) {
 				backgroundMap = TILE_BG_MAP_1; // 9800
@@ -120,8 +121,9 @@ namespace gbemu {
 		
 		int tilePatternTable;
 		bool sign;
-		if (CHECK_BIT(lcdc, BG_AND_WINDOW_TILE_DATA_SELECT)) {
-			tilePatternTable = TILE_PATTERNS_TABLE_1; // 8000. 0~255
+		// Here are drawings
+		if (CHECK_BIT(lcdc, BG_AND_WINDOW_TILE_DATA_SELECT)) { 
+			tilePatternTable = TILE_PATTERNS_TABLE_1; // 8000. 0~255 
 			sign = false;
 		} else {
 			tilePatternTable = TILE_PATTERNS_TABLE_2; // 9000. -128~127
