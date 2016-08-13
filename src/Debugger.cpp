@@ -1,8 +1,9 @@
 #include "Debugger.hpp"
 
+#include <string>
+#include <sstream>
+#include <iostream>
 #include "imgui.h"
-
-using namespace std;
 
 namespace debugger {
 	
@@ -11,8 +12,37 @@ namespace debugger {
 	const auto ROWS = 32;
 	const auto MEM_SIZE = 64 * 1024;
 	
+	char readPc[4];
+	bool seekingPc;
+	int pcTarget;
+	
 	int ramViewerWidth(int cellWidth) {
 		return cellWidth * (4 + ROWS);
+	}
+	
+	bool ShouldExecuteNextInstruction(gbemu::CPU &cpu) {
+		bool ret;
+		
+		auto glyphWidth = ImGui::CalcTextSize("F").x;
+		auto cellWidth = glyphWidth * 3;
+		ImGui::SetNextWindowPos(ImVec2(ramViewerWidth(cellWidth),cellWidth * 12));
+		ImGui::SetNextWindowSize(ImVec2(0, cellWidth * 6));
+		if (ImGui::Begin("Stepper")) {
+			ret = ImGui::Button("Step");
+			ImGui::Separator();
+			ImGui::InputText("PC==", readPc, 4);
+			std::string pcTargetStr(readPc);
+			auto ifRes = ImGui::Button("Stop When");
+			if (!seekingPc && ifRes) {
+				seekingPc = true;
+				std::stringstream ss;
+				ss << std::hex << pcTargetStr;
+				ss >> pcTarget;
+				ret = cpu._pc != pcTarget;
+			}
+		}
+		ImGui::End();
+		return ret;
 	}
 	
 	void RegistersViewer(gbemu::CPU &cpu) {
@@ -24,13 +54,13 @@ namespace debugger {
 			ImGui::Text("PC %04X", cpu._pc);
 			ImGui::Text("SP %04X", cpu._sp);
 			ImGui::Separator();
-			ImGui::Text("A  %04X", cpu.a);
-			ImGui::Text("B  %04X", cpu.b);
-			ImGui::Text("C  %04X", cpu.c);
-			ImGui::Text("D  %04X", cpu.d);
-			ImGui::Text("E  %04X", cpu.e);
-			ImGui::Text("H  %04X", cpu.h);
-			ImGui::Text("L  %04X", cpu.l);
+			ImGui::Text("A  %02X", cpu.a);
+			ImGui::Text("B  %02X", cpu.b);
+			ImGui::Text("C  %02X", cpu.c);
+			ImGui::Text("D  %02X", cpu.d);
+			ImGui::Text("E  %02X", cpu.e);
+			ImGui::Text("H  %02X", cpu.h);
+			ImGui::Text("L  %02X", cpu.l);
 			ImGui::Separator();
 			ImGui::Text("F  %s", bitset<8>(cpu.f).to_string().c_str());
 		}

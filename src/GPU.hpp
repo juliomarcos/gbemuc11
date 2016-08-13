@@ -11,16 +11,14 @@ namespace gbemu {
 	
 	class GPU {
 	public:
-		const static int TILE_PATTERNS_TABLE_SPRITE_BG = 0;
-		const static int TILE_PATTERNS_TABLE_BG_WINDOW = 0x800;
+		const static int TILE_PATTERNS_TABLE_1 = 0x8000;
+		const static int TILE_PATTERNS_TABLE_2 = 0x9000; // 0x9000 + (-128 * 16) = 0x8800
 		const static int TILE_BG_MAP_1 = 0x9800;
 		const static int TILE_BG_MAP_2 = 0x9C00;
 		const static int OAM = 0xFE00;
 		const static int BGP = 0xFF47;
 		const static int OBP0 = 0xFF48;
 		const static int OBP1 = 0xFF49;
-		const static int TILE_PATTERNS_TABLE_1 = 0x8000;
-		const static int TILE_PATTERNS_TABLE_2 = 0x8800;
 		
 	    const static auto LCD_DISPLAY_ENABLE = 7;
 	    const static auto WINDOW_TILE_MAP_DISPLAY_SELECT = 6;

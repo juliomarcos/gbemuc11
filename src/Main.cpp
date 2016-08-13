@@ -11,7 +11,8 @@
 #include "Logger.hpp"
 #include "Debugger.hpp"
 
-gbemu::LogLevel gbemu::Log::currentLogLevel = gbemu::LogLevel::NO_LOG;
+gbemu::LogLevel gbemu::Log::currentLogLevel = gbemu::LogLevel::ERROR;
+const int usingDebugger = true;
 
 using namespace std;
 
@@ -77,18 +78,21 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 	
-	// Setup ImGui binding
-	ImVec4 clearColor = ImColor(114, 144, 154);
-	auto debuggerWindow = gbemu::initWindow(800, 830, "debugger");
-	glfwMakeContextCurrent(debuggerWindow);
-    ImGui_ImplGlfw_Init(debuggerWindow, true);
-
 	auto romFileName = gbemu::getRomFileNameFromPath(romPath);
 	auto windowTitle = string("gbemuc11 - ") + romFileName;
 	auto window = gbemu::initWindow(160, 144, windowTitle);
-	int debuggerX, debuggerY;
-	glfwGetWindowPos(debuggerWindow, &debuggerX, &debuggerY);
-	glfwSetWindowPos(window, debuggerX+800, debuggerY);
+	
+	// Setup ImGui binding
+	GLFWwindow* debuggerWindow;
+	ImVec4 clearColor = ImColor(114, 144, 154);
+	if (usingDebugger) {
+		debuggerWindow = gbemu::initWindow(800, 830, "debugger");
+		glfwMakeContextCurrent(debuggerWindow);
+	    ImGui_ImplGlfw_Init(debuggerWindow, true);
+		int debuggerX, debuggerY;
+		glfwGetWindowPos(debuggerWindow, &debuggerX, &debuggerY);
+		glfwSetWindowPos(window, debuggerX+800, debuggerY);	
+	}
 
 	auto cpu = gbemu::CPU::CPU();
 	auto interrupt = gbemu::Interrupt(cpu);
@@ -98,13 +102,6 @@ int main(int argc, char *argv[]) {
 	cpu.setRomBuffer(gbemu::getByteBufferFromPath(romPath));
 	cpu.loadRom(cpu.getRomBuffer(), 0x8000); // TODO: usar isto depois q o bootstrap rodar
 	cpu.loadRom(gbemu::getByteBufferFromPath("./build/bootstrap.bin"), 0x100);
-	//cpu.powerUpSequence();
-
-	auto cycles = 50;
-	// for(size_t i = 0; i < cycles; ++i)
-	// {
-	// cpu.emulateCycle();
-	// }
 
     const auto CYCLES_PER_FRAME = gbemu::CLOCK_SPEED / gbemu::REFRESH_RATE;
 	while (!glfwWindowShouldClose(window))
@@ -112,38 +109,51 @@ int main(int argc, char *argv[]) {
 		auto cyclesThisFrame = 0;
 		auto cyclesThisInstruction = 0;
 		
-		while (cyclesThisFrame < CYCLES_PER_FRAME) {			
+		// TODO: do not define this inside this loop
+		auto cycle = [&]() {
 			cyclesThisInstruction = cpu.emulateNextInstruction();
-			// cyclesThisInstruction = 12;
 			gpu.draw(cyclesThisInstruction);
 			//timers.update(cyclesThisInstruction);
 			interrupt.run();
 			cyclesThisFrame += cyclesThisInstruction;
+		};
+		
+		while (cyclesThisFrame < CYCLES_PER_FRAME) {
+			if (usingDebugger) {
+				if (!debugger::seekingPc) {
+					glfwMakeContextCurrent(debuggerWindow);
+					glfwPollEvents();
+					ImGui_ImplGlfw_NewFrame();
+					if (debugger::ShouldExecuteNextInstruction(cpu)) {
+						cycle();
+					}
+					
+					debugger::MemoryViewer(cpu);
+					debugger::RegistersViewer(cpu);	
+			        
+			        int displayW, displayH;
+			        glfwGetFramebufferSize(debuggerWindow, &displayW, &displayH);
+			        glViewport(0, 0, displayW, displayH);
+			        glClearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
+			        glClear(GL_COLOR_BUFFER_BIT);
+			        ImGui::Render();
+			        glfwSwapBuffers(debuggerWindow);
+				} else {
+					cycle();
+					if (cpu._pc == debugger::pcTarget) {
+						debugger::seekingPc = false;
+					}
+				}
+			} else {
+				cycle();
+			}
 		}
 		
 		glfwMakeContextCurrent(window);
 		gpu.drawPixels();
 		glfwSwapBuffers(window);
 		glfwPollEvents();
-		
-		glfwMakeContextCurrent(debuggerWindow);
-		glfwPollEvents();
-		ImGui_ImplGlfw_NewFrame();
-		debugger::MemoryViewer(cpu);
-		debugger::RegistersViewer(cpu);
-		
-        // Debugger Rendering
-        int displayW, displayH;
-        glfwGetFramebufferSize(debuggerWindow, &displayW, &displayH);
-        glViewport(0, 0, displayW, displayH);
-        glClearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
-        glClear(GL_COLOR_BUFFER_BIT);
-        ImGui::Render();
-        glfwSwapBuffers(debuggerWindow);
-		
-		// TODO: remover this artificial for tests only limitation
-		// cycles -= cyclesThisInstruction;
-		// if (cycles <= 0) break;
+
 	}
 
 	ImGui_ImplGlfw_Shutdown();

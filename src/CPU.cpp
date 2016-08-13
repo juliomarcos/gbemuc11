@@ -718,8 +718,9 @@ namespace gbemu {
 		} else if (address==0xff50 && value == 1) {
 			// unmaps the internal rom
 			// and maps the cartridge
-			//loadRom(romBuffer, 0x8000);
-			//powerUpSequence();
+			ram[address] = value;
+			loadRom(romBuffer, 0x8000);
+			powerUpSequence();
 		} else {
 			ram[address] = value;
 		}

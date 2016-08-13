@@ -103,28 +103,29 @@ namespace gbemu {
 			}
 		}
 		
-		int tilePatternTable;
-		bool sign;
-		if (CHECK_BIT(lcdc, BG_AND_WINDOW_TILE_DATA_SELECT)) {
-			tilePatternTable = TILE_PATTERNS_TABLE_1; // 0~255
-			sign = false;
-		} else {
-			tilePatternTable = TILE_PATTERNS_TABLE_2; // -128~127
-			sign = true;
-		}
 		int backgroundMap; // this resembles sprites
 		if (win) {
 			if (!CHECK_BIT(lcdc, WINDOW_TILE_MAP_DISPLAY_SELECT)) {
-				backgroundMap = TILE_BG_MAP_1;
+				backgroundMap = TILE_BG_MAP_1; // 9800
 			} else {
-				backgroundMap = TILE_BG_MAP_2;
+				backgroundMap = TILE_BG_MAP_2; // 9C00
 			}	
 		} else {
 			if (!CHECK_BIT(lcdc, BG_TILE_MAP_DISPLAY_SELECT)) {
-				backgroundMap = TILE_BG_MAP_1;
+				backgroundMap = TILE_BG_MAP_1; // 9800
 			} else {
-				backgroundMap = TILE_BG_MAP_2;
+				backgroundMap = TILE_BG_MAP_2; // 9C00
 			}	
+		}
+		
+		int tilePatternTable;
+		bool sign;
+		if (CHECK_BIT(lcdc, BG_AND_WINDOW_TILE_DATA_SELECT)) {
+			tilePatternTable = TILE_PATTERNS_TABLE_1; // 8000. 0~255
+			sign = false;
+		} else {
+			tilePatternTable = TILE_PATTERNS_TABLE_2; // 9000. -128~127
+			sign = true;
 		}
 
 		int yPos = win ? scanline-windowY : scrollY+scanline;
@@ -137,15 +138,15 @@ namespace gbemu {
 					xPos = i - windowX;
 				}
 			}
-			uint16_t tileCol = xPos / 8;
+			uint16_t tileDataAddr = tilePatternTable;
+			uint8_t tileCol = xPos / 8;
 			uint16_t tilePatternAddr = backgroundMap + tileRow + tileCol;
-			uint16_t tileDataAddr;
 			if (!sign) {
 				uint8_t tilePatternNum = cpu.readRam(tilePatternAddr);
-				tileDataAddr = tilePatternNum * 16;
+				tileDataAddr += tilePatternNum * 16;
 			} else {
 				int8_t tilePatternNum = (int8_t) cpu.readRam(tilePatternAddr);
-				tileDataAddr = (tilePatternNum + 128) * 16;
+				tileDataAddr += tilePatternNum * 16;
 			}
 							
 			uint8_t whichTileLine = (yPos % 8) * 2; // each line in a tile takes 2 bytes
@@ -242,7 +243,6 @@ namespace gbemu {
 		if (scanlineDelayCounter > 0) return; 
 		
 		scanlineDelayCounter = 456;
-		cpu.ly(cpu.ly() + 1);
 		auto currentLine = cpu.ly();
 		
 		if (currentLine < 144) {
@@ -257,6 +257,7 @@ namespace gbemu {
 			cpu.ly(0);
 		}
 		
+		cpu.ly(cpu.ly() + 1);
 	}
 	
 	void GPU::initGraphics() {
